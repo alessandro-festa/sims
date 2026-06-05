@@ -1,0 +1,25 @@
+{{- /*
+Apply the GPU operator namespace with Pod Security Admission labels set to
+"privileged" — fake-gpu-operator's device-plugin DaemonSet mounts the kubelet
+device-plugin socket via a hostPath, which the "baseline" PSA profile blocks.
+
+Helm's --create-namespace creates the namespace bare; our template runs as a
+pre-install / pre-upgrade hook so the labels are present before the subchart's
+workloads land. hook-delete-policy is empty (no deletion on failure) because we
+don't want the namespace and everything in it disappearing if a single resource
+fails to apply.
+*/}}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/part-of: sims
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/warn: privileged
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/resource-policy": keep

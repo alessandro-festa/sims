@@ -1,11 +1,11 @@
 # Default values for sims-nvidia.
-# Phase 1 wires these through to the fake-gpu-operator subchart.
+# Surface values live at the top level; pass-through to the fake-gpu-operator
+# subchart sits under that key. The sims CLI sets both based on --gpus-per-worker.
 
 gpusPerNode: 2
 gpuProduct: Tesla-T4
 gpuMemory: 16384   # MiB
 
-# Pass-through to fake-gpu-operator subchart.
 fake-gpu-operator:
   topology:
     nodePools:
@@ -13,3 +13,9 @@ fake-gpu-operator:
         gpuCount: 2
         gpuProduct: Tesla-T4
         gpuMemory: 16384
+  # Both optional NVIDIA subcharts stay disabled — they pull in the real GPU
+  # Operator chart and would defeat the point of the fake stack.
+  gpuOperator:
+    enabled: false
+  nvidiaDraDriver:
+    enabled: false
