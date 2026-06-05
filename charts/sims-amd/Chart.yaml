@@ -1,0 +1,26 @@
+apiVersion: v2
+name: sims-amd
+description: |
+  GPU stack for a sims AMD cluster. Wraps fake-rocm-gpu-operator (sister project
+  to run-ai/fake-gpu-operator). Built incrementally across Phases 3-5.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+kubeVersion: ">=1.28.0-0"
+keywords:
+  - gpu
+  - amd
+  - rocm
+  - simulator
+  - kind
+home: https://github.com/alessandro-festa/sims
+sources:
+  - https://github.com/alessandro-festa/sims
+maintainers:
+  - name: alessandro-festa
+    url: https://github.com/alessandro-festa
+dependencies:
+  # Wired up in Phase 3.
+  # - name: fake-rocm-gpu-operator
+  #   version: 0.1.0
+  #   repository: file://../../operators/fake-rocm-gpu-operator/chart

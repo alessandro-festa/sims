@@ -1,0 +1,15 @@
+# Default values for sims-nvidia.
+# Phase 1 wires these through to the fake-gpu-operator subchart.
+
+gpusPerNode: 2
+gpuProduct: Tesla-T4
+gpuMemory: 16384   # MiB
+
+# Pass-through to fake-gpu-operator subchart.
+fake-gpu-operator:
+  topology:
+    nodePools:
+      default:
+        gpuCount: 2
+        gpuProduct: Tesla-T4
+        gpuMemory: 16384

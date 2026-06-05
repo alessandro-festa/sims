@@ -1,0 +1,18 @@
+# Default values for sims-monitoring.
+#
+# vendor selects which ServiceMonitor and dashboard ConfigMap are rendered.
+# Set by the sims CLI based on the cluster's vendor.
+vendor: nvidia   # nvidia | amd
+
+grafana:
+  adminUser: admin
+  adminPassword: prom-operator
+
+# Pass-through to kube-prometheus-stack subchart.
+kube-prometheus-stack:
+  grafana:
+    sidecar:
+      dashboards:
+        enabled: true
+        label: grafana_dashboard
+        labelValue: "1"

@@ -1,0 +1,12 @@
+# Default values for sims-amd.
+
+gpusPerNode: 2
+productName: MI300X
+gpuMemoryBytes: 206158430208  # 192 GiB
+
+# Pass-through to fake-rocm-gpu-operator subchart (Phase 3+).
+fake-rocm-gpu-operator:
+  gpusPerNode: 2
+  productName: MI300X
+  simulatedDefaults:
+    utilization: "5-15"

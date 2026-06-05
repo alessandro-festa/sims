@@ -1,0 +1,26 @@
+apiVersion: v2
+name: sims-monitoring
+description: |
+  Opt-in monitoring stack for sims clusters. Wraps kube-prometheus-stack and
+  contributes a vendor-specific ServiceMonitor + Grafana dashboard ConfigMap
+  switched on .Values.vendor (nvidia|amd).
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+kubeVersion: ">=1.28.0-0"
+keywords:
+  - monitoring
+  - prometheus
+  - grafana
+  - gpu
+home: https://github.com/alessandro-festa/sims
+sources:
+  - https://github.com/alessandro-festa/sims
+maintainers:
+  - name: alessandro-festa
+    url: https://github.com/alessandro-festa
+dependencies:
+  # Wired up in Phase 2.
+  # - name: kube-prometheus-stack
+  #   version: ~62.0.0
+  #   repository: https://prometheus-community.github.io/helm-charts

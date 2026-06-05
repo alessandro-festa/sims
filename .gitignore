@@ -1,0 +1,38 @@
+# Binaries
+/bin/
+/dist/
+/sims
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test artifacts
+*.test
+*.out
+coverage.txt
+coverage.html
+
+# Go workspace files
+go.work
+go.work.sum
+
+# Helm
+charts/**/charts/
+charts/**/Chart.lock
+*.tgz
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
+*.swp
+*~
+
+# Local config / secrets
+.env
+.env.local
+*.kubeconfig
+
+# Sims runtime cache (Grafana port-forward PIDs etc.)
+.sims-cache/
