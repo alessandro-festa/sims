@@ -4,6 +4,7 @@ import "github.com/spf13/cobra"
 
 const version = "0.0.0-dev"
 
+// NewRootCmd returns the top-level cobra command for the sims CLI.
 func NewRootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:           "sims",
