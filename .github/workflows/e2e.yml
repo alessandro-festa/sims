@@ -32,11 +32,4 @@ jobs:
       - name: e2e tests
         env:
           E2E: "1"
-        # The e2e/ directory does not exist yet (lands in Phase 1 issue #10).
-        # Skip cleanly until it does, so the workflow itself is green.
-        run: |
-          if [ -d e2e ]; then
-            go test -timeout 30m ./e2e/...
-          else
-            echo "e2e/ not present yet — skipping (added in issue #10)"
-          fi
+        run: go test -timeout 30m ./e2e/...
