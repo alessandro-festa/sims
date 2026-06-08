@@ -64,3 +64,24 @@ func ensureNamespace(ctx context.Context, cs kubernetes.Interface, name string, 
 	}
 	return nil
 }
+
+// DeleteNamespace removes the named namespace. Returns nil if it doesn't
+// exist (idempotent). Note: namespace deletion is asynchronous in the API
+// server — the namespace enters Terminating and disappears once all its
+// resources are gone. This function returns as soon as the delete request
+// is accepted; it does NOT wait.
+func DeleteNamespace(ctx context.Context, kubeconfig []byte, name string) error {
+	cs, err := newClientset(kubeconfig)
+	if err != nil {
+		return err
+	}
+	return deleteNamespace(ctx, cs, name)
+}
+
+func deleteNamespace(ctx context.Context, cs kubernetes.Interface, name string) error {
+	err := cs.CoreV1().Namespaces().Delete(ctx, name, metav1.DeleteOptions{})
+	if err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("delete namespace %q: %w", name, err)
+	}
+	return nil
+}
