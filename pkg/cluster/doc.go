@@ -1,6 +1,7 @@
 // Package cluster wraps sigs.k8s.io/kind/pkg/cluster for creating, deleting,
-// and inspecting kind clusters from the sims CLI.
+// listing, and fetching the kubeconfig of sims-managed kind clusters.
 //
-// Phase 1 will implement Create/Delete using a templated kind config from
-// pkg/config and a local image registry container.
+// The CLI uses this package instead of execing the kind binary so that errors
+// surface as typed Go errors and the binary has no runtime dependency on `kind`.
+// Logs from kind are forwarded to the slog.Logger passed to New.
 package cluster
