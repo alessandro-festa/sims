@@ -1,0 +1,6 @@
+apiVersion: v2
+name: child-chart
+description: Empty test fixture used as a file:// dependency target.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

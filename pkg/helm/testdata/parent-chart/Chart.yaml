@@ -1,0 +1,10 @@
+apiVersion: v2
+name: parent-chart
+description: Test fixture — depends on a sibling file:// chart so EnsureDependencies can run without network.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+dependencies:
+  - name: child-chart
+    version: 0.1.0
+    repository: file://../child-chart

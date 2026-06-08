@@ -109,10 +109,20 @@ func (c *Client) Close() error {
 	return nil
 }
 
+// InstallOption tunes a single Install call.
+type InstallOption func(*action.Install)
+
+// WithoutCreateNamespace tells Install to skip Helm's `--create-namespace`
+// step. Use this when the chart provides its own Namespace template (rendering
+// such a chart with CreateNamespace=true causes an "already exists" conflict).
+func WithoutCreateNamespace() InstallOption {
+	return func(i *action.Install) { i.CreateNamespace = false }
+}
+
 // Install installs a release. chartRef may be a local path to a chart
 // directory or .tgz, or an OCI URL (oci://...). The release's namespace is
-// auto-created if missing.
-func (c *Client) Install(ctx context.Context, release, chartRef string, values map[string]any) error {
+// auto-created if missing unless WithoutCreateNamespace is passed.
+func (c *Client) Install(ctx context.Context, release, chartRef string, values map[string]any, opts ...InstallOption) error {
 	cfg, err := c.actionConfig()
 	if err != nil {
 		return err
@@ -121,6 +131,9 @@ func (c *Client) Install(ctx context.Context, release, chartRef string, values m
 	install.ReleaseName = release
 	install.Namespace = c.namespace
 	install.CreateNamespace = true
+	for _, opt := range opts {
+		opt(install)
+	}
 
 	chart, err := c.locateAndLoad(chartRef, &install.ChartPathOptions)
 	if err != nil {

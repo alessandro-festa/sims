@@ -65,6 +65,7 @@ type templateData struct {
 	WorkerIndices []struct{}
 	Vendor        string
 	PresentLabel  string
+	ExtraLabels   map[string]string
 	Taint         bool
 	RegistryName  string
 	RegistryPort  int
@@ -98,12 +99,27 @@ func buildTemplateData(o Options) (templateData, error) {
 		VendorAMD:    "feature.node.kubernetes.io/amd-gpu",
 	}[o.Vendor]
 
+	// fake-gpu-operator's DaemonSets gate on the standard NVIDIA GPU Operator
+	// labels (nvidia.com/gpu.deploy.*), and its status-updater binds a node
+	// to a "node pool" (default = "default") via run.ai/simulated-gpu-node-pool.
+	// Without that pool label, no per-node topology ConfigMap is generated and
+	// the device-plugin pod can't compute its GPU count.
+	var extraLabels map[string]string
+	if o.Vendor == VendorNVIDIA {
+		extraLabels = map[string]string{
+			"nvidia.com/gpu.deploy.device-plugin": "true",
+			"nvidia.com/gpu.deploy.dcgm-exporter": "true",
+			"run.ai/simulated-gpu-node-pool":      "default",
+		}
+	}
+
 	return templateData{
 		Name:          o.Name,
 		NodeImage:     "kindest/node:" + o.K8sVersion,
 		WorkerIndices: make([]struct{}, o.Workers),
 		Vendor:        o.Vendor,
 		PresentLabel:  present,
+		ExtraLabels:   extraLabels,
 		Taint:         o.Taint,
 		RegistryName:  o.RegistryName,
 		RegistryPort:  o.RegistryPort,
@@ -123,6 +139,9 @@ nodes:
     labels:
       sims.io/gpu-vendor: "{{ $.Vendor }}"
       {{ $.PresentLabel }}: "true"
+{{- range $k, $v := $.ExtraLabels }}
+      {{ $k }}: "{{ $v }}"
+{{- end }}
 {{- if $.Taint }}
     taints:
       - key: "{{ $.Vendor }}.com/gpu"

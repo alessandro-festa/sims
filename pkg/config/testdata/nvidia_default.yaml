@@ -9,11 +9,17 @@ nodes:
     labels:
       sims.io/gpu-vendor: "nvidia"
       nvidia.com/gpu.present: "true"
+      nvidia.com/gpu.deploy.dcgm-exporter: "true"
+      nvidia.com/gpu.deploy.device-plugin: "true"
+      run.ai/simulated-gpu-node-pool: "default"
   - role: worker
     image: kindest/node:v1.31.0
     labels:
       sims.io/gpu-vendor: "nvidia"
       nvidia.com/gpu.present: "true"
+      nvidia.com/gpu.deploy.dcgm-exporter: "true"
+      nvidia.com/gpu.deploy.device-plugin: "true"
+      run.ai/simulated-gpu-node-pool: "default"
 containerdConfigPatches:
   - |-
     [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:5001"]
