@@ -53,6 +53,23 @@ func TestEnsureNamespace_NoOpWhenLabelsMatch(t *testing.T) {
 	}
 }
 
+func TestDeleteNamespace_Existing(t *testing.T) {
+	cs := fake.NewClientset(namespaceMissingPSALabels())
+	if err := deleteNamespace(context.Background(), cs, "gpu-operator"); err != nil {
+		t.Fatalf("deleteNamespace: %v", err)
+	}
+	if _, err := cs.CoreV1().Namespaces().Get(context.Background(), "gpu-operator", metav1.GetOptions{}); err == nil {
+		t.Error("namespace still exists after delete")
+	}
+}
+
+func TestDeleteNamespace_NotFoundIsIdempotent(t *testing.T) {
+	cs := fake.NewClientset()
+	if err := deleteNamespace(context.Background(), cs, "nope"); err != nil {
+		t.Fatalf("deleteNamespace on missing should be nil, got: %v", err)
+	}
+}
+
 func namespaceMissingPSALabels() *corev1.Namespace {
 	return &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
