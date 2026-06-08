@@ -5,6 +5,7 @@ Vendor Grafana dashboard JSON, vendored at known versions for reproducible deplo
 ## NVIDIA — `nvidia-dcgm.json`
 
 - **Source:** [NVIDIA DCGM Exporter Dashboard, Grafana ID 12239](https://grafana.com/grafana/dashboards/12239/)
+- **Vendored revision:** 2 (uid `Oxed_c6Wz`, schemaVersion 22) — fetched 2026-06-08 via `curl https://grafana.com/api/dashboards/12239/revisions/2/download`.
 - **Wired in:** Phase 2 (`charts/sims-monitoring` mounts as `grafana_dashboard: "1"` ConfigMap when `vendor=nvidia`)
 - **Coverage caveat:** `run-ai/fake-gpu-operator` only emits 3 of the ~20 DCGM metrics this dashboard expects (`DCGM_FI_DEV_GPU_UTIL`, `DCGM_FI_DEV_FB_USED`, `DCGM_FI_DEV_FB_FREE`). Util and memory panels populate; temperature, power, clocks, ECC panels are empty. Phase 7 plans a sidecar exporter to fill the gap.
 
