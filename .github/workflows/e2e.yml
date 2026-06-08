@@ -1,0 +1,42 @@
+name: E2E
+
+# End-to-end tests against a real kind cluster. Heavy; not run on every PR.
+# Trigger manually via `gh workflow run e2e.yml` or wait for the weekly schedule.
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Mondays at 06:17 UTC. Off the :00 minute to avoid Actions queue pile-up.
+    - cron: '17 6 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: helm/kind-action@v1
+        with:
+          install_only: true
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.3
+      - name: e2e tests
+        env:
+          E2E: "1"
+        # The e2e/ directory does not exist yet (lands in Phase 1 issue #10).
+        # Skip cleanly until it does, so the workflow itself is green.
+        run: |
+          if [ -d e2e ]; then
+            go test -timeout 30m ./e2e/...
+          else
+            echo "e2e/ not present yet — skipping (added in issue #10)"
+          fi
