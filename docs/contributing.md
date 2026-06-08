@@ -8,6 +8,7 @@ cd sims
 go mod download
 go build ./...
 go test ./...
+go build -o bin/sims ./cmd/sims && ./bin/sims gpu doctor   # validates Docker, insecure-registries, GHCR
 ```
 
 ## Repository layout
@@ -17,26 +18,26 @@ sims/
   cmd/sims/main.go             # cobra entrypoint
   pkg/
     cli/                       # cobra command implementations
-    cluster/                   # kind orchestration (sigs.k8s.io/kind/pkg/cluster)
-    helm/                      # helm SDK wrapper (helm.sh/helm/v3/pkg/action)
-    kube/                      # client-go helpers (port-forward, wait-for-ready)
+    cluster/                   # kind orchestration + local registry lifecycle
+    helm/                      # helm SDK wrapper (install/upgrade/uninstall + EnsureDependencies)
+    kube/                      # client-go helpers: wait-for-capacity / -deployment, namespace, vendor detection
     config/                    # per-vendor kind config templating
   charts/
-    sims-nvidia/               # wraps run-ai/fake-gpu-operator
-    sims-amd/                  # wraps our fake-rocm-gpu-operator
-    sims-monitoring/           # wraps kube-prometheus-stack + vendor ServiceMonitor + dashboard CM
+    sims-nvidia/               # wraps run-ai/fake-gpu-operator (OCI dep)
+    sims-amd/                  # wraps our fake-rocm-gpu-operator (Phase 3+)
+    sims-monitoring/
+      dashboards/              # vendored Grafana dashboard JSON (lives here so Files.Get can reach it)
+      templates/               # ServiceMonitor + dashboard ConfigMap, conditional on .Values.vendor
   operators/
-    fake-rocm-gpu-operator/    # new: AMD-side sister to fake-gpu-operator
+    fake-rocm-gpu-operator/    # new: AMD-side sister to fake-gpu-operator (Phase 3+)
       cmd/{device-plugin,metrics-exporter,status-updater,node-labeller,controller}/
       pkg/{deviceplugin,topology,metrics,simulate}/
       api/v1alpha1/            # DeviceConfig CRD (Phase 6)
       chart/                   # Helm chart shipped via charts/sims-amd dependency
       Dockerfile               # one image, subcommand entrypoint
-  dashboards/
-    nvidia-dcgm.json           # Grafana ID 12239, vendored
-    amd-gpu.json               # Grafana ID 23715, vendored
-  hack/                        # update-dashboards.sh and other dev scripts
-  e2e/                         # end-to-end tests driving the CLI itself
+  dashboards/                  # discovery README (the JSON lives under the chart that consumes it)
+  hack/update-dashboards.sh    # refresh script for the vendored Grafana JSON
+  e2e/                         # end-to-end tests driving the sims CLI; gated by E2E=1
   docs/
 ```
 
@@ -48,7 +49,7 @@ sims/
 - **Tests:**
   - Unit tests live next to the code (`foo.go` ↔ `foo_test.go`).
   - `pkg/simulate` tests must use a seeded RNG for determinism.
-  - E2E tests in `e2e/` drive the `sims` CLI itself; they only run on Linux (kind needs the Linux kernel).
+  - E2E tests in `e2e/` drive the `sims` CLI itself; gated by `E2E=1`. They need Docker (Docker Desktop on macOS, native on Linux). Run with `E2E=1 go test -timeout 20m ./e2e/...`; without the env they skip cleanly.
 
 ## Adding a new phase
 
