@@ -1,0 +1,25 @@
+{{ .Release.Name }} installed into namespace {{ .Release.Namespace }}.
+
+For standalone installs (i.e. without the `sims` CLI), either let Helm
+create the namespace:
+
+  helm install {{ .Release.Name }} charts/sims-monitoring \
+    -n {{ .Release.Namespace }} --create-namespace
+
+or pre-create it yourself before running `helm install -n {{ .Release.Namespace }}`.
+Helm needs the namespace to exist before it stores release metadata in it.
+
+The `sims gpu create --vendor X --monitoring` flow (Phase 2 / issue #16)
+will do the pre-create for you and call `helm install` with
+`CreateNamespace=false`.
+
+Default credentials for Grafana:
+  user:     {{ .Values.grafana.adminUser | default "admin" }}
+  password: {{ .Values.grafana.adminPassword | default "prom-operator" }}
+
+Port-forward Grafana:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ .Release.Name }}-grafana 3000:80
+  open http://localhost:3000
+
+A future `sims gpu dashboard --open` command (Phase 2 / issue #17) will
+manage this port-forward for you in the background.
