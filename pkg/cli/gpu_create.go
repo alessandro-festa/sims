@@ -25,6 +25,14 @@ const (
 	chartDirEnvVar     = "SIMS_CHART_DIR"
 	gpuResourceNVIDIA  = "nvidia.com/gpu"
 	capacityWaitWindow = 2 * time.Minute
+
+	monitoringChartName  = "sims-monitoring"
+	monitoringRelease    = "sims-monitoring"
+	monitoringNamespace  = "monitoring"
+	monitoringWaitWindow = 4 * time.Minute
+	// grafanaDeploymentSuffix matches kube-prometheus-stack's default
+	// naming: <release>-grafana.
+	grafanaDeploymentSuffix = "-grafana"
 )
 
 type createOpts struct {
@@ -63,9 +71,6 @@ func runCreate(ctx context.Context, stdout io.Writer, o *createOpts) error {
 	}
 	if o.vendor == config.VendorAMD {
 		return errors.New("--vendor amd not yet supported (Phase 3+); only nvidia is wired in Phase 1")
-	}
-	if o.withMonitoring {
-		return errors.New("--monitoring not yet supported (Phase 2)")
 	}
 
 	log := newStderrLogger()
@@ -135,10 +140,68 @@ func runCreate(ctx context.Context, stdout io.Writer, o *createOpts) error {
 		return err
 	}
 
+	if o.withMonitoring {
+		if err := installMonitoring(ctx, log, kc, o.vendor); err != nil {
+			return err
+		}
+	}
+
+	monitoringMsg := ""
+	if o.withMonitoring {
+		monitoringMsg = "\nmonitoring: kubectl -n " + monitoringNamespace + " port-forward svc/" + monitoringRelease + "-grafana 3000:80"
+	}
 	_, _ = fmt.Fprintf(stdout,
-		"cluster %q ready — %d workers × %d %s\nkubeconfig context: kind-%s\n",
-		name, o.workers, o.gpusPerWorker, gpuResourceNVIDIA, name)
+		"cluster %q ready — %d workers × %d %s\nkubeconfig context: kind-%s%s\n",
+		name, o.workers, o.gpusPerWorker, gpuResourceNVIDIA, name, monitoringMsg)
 	return nil
+}
+
+// installMonitoring brings up sims-monitoring (kube-prometheus-stack + the
+// vendor's ServiceMonitor + dashboard CM) alongside the GPU release. The
+// caller is responsible for the cluster + kubeconfig; this function pre-
+// creates the monitoring namespace (Helm can't own a namespace cleanly —
+// see feedback-helm-namespace-ownership memory), installs the chart with
+// vendor=<vendor>, then waits up to monitoringWaitWindow for the Grafana
+// Deployment to become Available.
+func installMonitoring(ctx context.Context, log *slog.Logger, kubeconfig []byte, vendor string) error {
+	log.Info("ensuring monitoring namespace", "namespace", monitoringNamespace)
+	if err := kube.EnsureNamespace(ctx, kubeconfig, monitoringNamespace, monitoringNSLabels()); err != nil {
+		return err
+	}
+
+	hc, err := helm.New(kubeconfig, monitoringNamespace, helm.WithLogger(log))
+	if err != nil {
+		return err
+	}
+	defer func() { _ = hc.Close() }()
+
+	chartDir := resolveChartDir(monitoringChartName)
+	log.Info("pulling monitoring chart deps (first run is slow, OCI fetch)")
+	if err := hc.EnsureDependencies(ctx, chartDir); err != nil {
+		return err
+	}
+
+	log.Info("installing monitoring chart",
+		"chart", chartDir, "release", monitoringRelease, "namespace", monitoringNamespace, "vendor", vendor)
+	if err := hc.Install(ctx, monitoringRelease, chartDir,
+		map[string]any{"vendor": vendor},
+		helm.WithoutCreateNamespace(),
+	); err != nil {
+		return err
+	}
+
+	grafanaDeploy := monitoringRelease + grafanaDeploymentSuffix
+	log.Info("waiting for Grafana to be Available", "deployment", grafanaDeploy, "timeout", monitoringWaitWindow)
+	waitCtx, cancel := context.WithTimeout(ctx, monitoringWaitWindow)
+	defer cancel()
+	return kube.WaitForDeploymentAvailable(waitCtx, kubeconfig, monitoringNamespace, grafanaDeploy)
+}
+
+func monitoringNSLabels() map[string]string {
+	return map[string]string{
+		"app.kubernetes.io/managed-by": "sims",
+		"app.kubernetes.io/part-of":    "sims",
+	}
 }
 
 func validateVendor(v string) error {

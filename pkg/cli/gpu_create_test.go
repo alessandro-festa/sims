@@ -15,13 +15,6 @@ func TestRunCreate_RejectsAMD(t *testing.T) {
 	}
 }
 
-func TestRunCreate_RejectsMonitoring(t *testing.T) {
-	err := runCreate(context.Background(), io.Discard, &createOpts{vendor: "nvidia", withMonitoring: true})
-	if err == nil || !strings.Contains(err.Error(), "Phase 2") {
-		t.Fatalf("expected Phase 2 rejection, got: %v", err)
-	}
-}
-
 func TestRunCreate_RejectsInvalidVendor(t *testing.T) {
 	err := runCreate(context.Background(), io.Discard, &createOpts{vendor: "xyz"})
 	if err == nil || !strings.Contains(err.Error(), "invalid --vendor") {
