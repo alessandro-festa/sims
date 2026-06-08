@@ -20,7 +20,6 @@ maintainers:
   - name: alessandro-festa
     url: https://github.com/alessandro-festa
 dependencies:
-  # Wired up in Phase 2.
-  # - name: kube-prometheus-stack
-  #   version: ~62.0.0
-  #   repository: https://prometheus-community.github.io/helm-charts
+  - name: kube-prometheus-stack
+    version: 86.2.0
+    repository: oci://ghcr.io/prometheus-community/charts
