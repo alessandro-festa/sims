@@ -1,0 +1,6 @@
+apiVersion: v2
+name: test-chart
+description: Tiny chart used by pkg/helm integration tests.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
