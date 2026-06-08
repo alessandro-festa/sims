@@ -17,9 +17,9 @@ coverage.html
 go.work
 go.work.sum
 
-# Helm
+# Helm: ignore downloaded dependency tarballs (Chart.lock IS committed so
+# `helm dependency update` is reproducible).
 charts/**/charts/
-charts/**/Chart.lock
 *.tgz
 
 # Editor / OS

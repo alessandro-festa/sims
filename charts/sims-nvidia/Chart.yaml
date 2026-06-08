@@ -19,7 +19,6 @@ maintainers:
   - name: alessandro-festa
     url: https://github.com/alessandro-festa
 dependencies:
-  # Wired up in Phase 1. Pinned version will land with the first end-to-end PR.
-  # - name: fake-gpu-operator
-  #   version: 0.0.81
-  #   repository: oci://ghcr.io/run-ai/fake-gpu-operator
+  - name: fake-gpu-operator
+    version: 0.0.81
+    repository: oci://ghcr.io/run-ai/fake-gpu-operator
