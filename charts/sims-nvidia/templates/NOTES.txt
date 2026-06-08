@@ -1,0 +1,18 @@
+{{ .Release.Name }} installed into namespace {{ .Release.Namespace }}.
+
+For standalone installs (i.e., without the `sims` CLI), the release namespace
+must exist BEFORE `helm install` and carry the Pod Security Admission labels
+listed below — fake-gpu-operator's device-plugin DaemonSet hostMounts the
+kubelet device-plugin socket, which the default `baseline` PSA profile blocks:
+
+  kubectl create namespace {{ .Release.Namespace }}
+  kubectl label namespace {{ .Release.Namespace }} \
+    pod-security.kubernetes.io/enforce=privileged \
+    pod-security.kubernetes.io/audit=privileged \
+    pod-security.kubernetes.io/warn=privileged
+
+The `sims gpu create` command does this for you automatically.
+
+Verify the simulated GPUs are visible to the scheduler:
+
+  kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}: {.status.capacity.nvidia\.com/gpu}{"\n"}{end}'

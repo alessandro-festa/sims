@@ -9,6 +9,9 @@ nodes:
     labels:
       sims.io/gpu-vendor: "nvidia"
       nvidia.com/gpu.present: "true"
+      nvidia.com/gpu.deploy.dcgm-exporter: "true"
+      nvidia.com/gpu.deploy.device-plugin: "true"
+      run.ai/simulated-gpu-node-pool: "default"
     taints:
       - key: "nvidia.com/gpu"
         value: "present"
@@ -18,6 +21,9 @@ nodes:
     labels:
       sims.io/gpu-vendor: "nvidia"
       nvidia.com/gpu.present: "true"
+      nvidia.com/gpu.deploy.dcgm-exporter: "true"
+      nvidia.com/gpu.deploy.device-plugin: "true"
+      run.ai/simulated-gpu-node-pool: "default"
     taints:
       - key: "nvidia.com/gpu"
         value: "present"
@@ -27,6 +33,9 @@ nodes:
     labels:
       sims.io/gpu-vendor: "nvidia"
       nvidia.com/gpu.present: "true"
+      nvidia.com/gpu.deploy.dcgm-exporter: "true"
+      nvidia.com/gpu.deploy.device-plugin: "true"
+      run.ai/simulated-gpu-node-pool: "default"
     taints:
       - key: "nvidia.com/gpu"
         value: "present"
@@ -36,6 +45,9 @@ nodes:
     labels:
       sims.io/gpu-vendor: "nvidia"
       nvidia.com/gpu.present: "true"
+      nvidia.com/gpu.deploy.dcgm-exporter: "true"
+      nvidia.com/gpu.deploy.device-plugin: "true"
+      run.ai/simulated-gpu-node-pool: "default"
     taints:
       - key: "nvidia.com/gpu"
         value: "present"
