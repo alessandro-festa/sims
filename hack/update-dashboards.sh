@@ -17,8 +17,8 @@ usage() {
 }
 
 case "${1:-}" in
-  nvidia) id=12239; out="dashboards/nvidia-dcgm.json" ;;
-  amd)    id=23715; out="dashboards/amd-gpu.json" ;;
+  nvidia) id=12239; out="charts/sims-monitoring/dashboards/nvidia-dcgm.json" ;;
+  amd)    id=23715; out="charts/sims-monitoring/dashboards/amd-gpu.json" ;;
   ""|-h|--help) usage ;;
   *) echo "unknown vendor: $1" >&2; usage ;;
 esac

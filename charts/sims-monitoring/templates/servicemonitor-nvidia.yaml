@@ -1,0 +1,31 @@
+{{- if eq .Values.vendor "nvidia" }}
+{{- /*
+ServiceMonitor for fake-gpu-operator's DCGM exporter Service. Lives in the
+sims-monitoring namespace ("monitoring") with the release label so the
+kube-prometheus-stack Prometheus selects it. namespaceSelector points at
+"gpu-operator", where sims-nvidia installs the Service. Port name and
+selector match fake-gpu-operator 0.0.81's status-exporter Service:
+  port:     gpu-metrics (:9400)
+  selector: app=nvidia-dcgm-exporter, component=status-exporter
+*/}}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .Release.Name }}-nvidia-dcgm-exporter
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/part-of: sims
+spec:
+  selector:
+    matchLabels:
+      app: nvidia-dcgm-exporter
+  namespaceSelector:
+    matchNames:
+      - gpu-operator
+  endpoints:
+    - port: gpu-metrics
+      interval: 15s
+      scrapeTimeout: 10s
+{{- end }}
