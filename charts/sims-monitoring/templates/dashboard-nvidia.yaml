@@ -1,0 +1,22 @@
+{{- if eq .Values.vendor "nvidia" }}
+{{- /*
+NVIDIA DCGM Exporter Dashboard, embedded from the vendored JSON. Grafana's
+sidecar (configured in values.yaml via kube-prometheus-stack.grafana.sidecar.
+dashboards) auto-loads any ConfigMap in this namespace labeled
+grafana_dashboard=1. fake-gpu-operator only emits ~3 of the ~20 DCGM metrics
+this dashboard queries; util + memory panels populate, the rest stay blank
+until Phase 7's sidecar. See dashboards/README.md.
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-nvidia-dcgm-dashboard
+  namespace: {{ .Release.Namespace }}
+  labels:
+    grafana_dashboard: "1"
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/part-of: sims
+data:
+  nvidia-dcgm.json: |-
+{{ .Files.Get "dashboards/nvidia-dcgm.json" | indent 4 }}
+{{- end }}
