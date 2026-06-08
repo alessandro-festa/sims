@@ -58,7 +58,7 @@ jobs:
           cache: true
       - uses: golangci/golangci-lint-action@v7
         with:
-          version: v2.1.0
+          version: latest
       - run: go vet ./...
 
   helm-lint:
