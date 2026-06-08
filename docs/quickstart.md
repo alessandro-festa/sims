@@ -19,7 +19,17 @@ go build -o bin/sims ./cmd/sims
 ./bin/sims --help
 ```
 
-(Pre-built binaries will be published once Phase 1 lands a tagged release.)
+(Pre-built binaries will be published with the first tagged release.)
+
+## Pre-flight check
+
+```bash
+./bin/sims gpu doctor
+```
+
+Validates Docker, the `localhost:5001` `insecure-registries` setting (needed by `sims gpu load-image`), the local registry container, and GHCR reachability. Exit 0 means you're good to go; failures print a one-line remediation hint.
+
+If `gpu doctor` flags `insecure-registries`, add `"insecure-registries": ["localhost:5001"]` to your Docker daemon config (Docker Desktop → Settings → Docker Engine; or `/etc/docker/daemon.json` on Linux) and restart Docker. This is a one-time per-host setup needed only for `sims gpu load-image`; `sims gpu create` and `gpu sample` work without it.
 
 ## NVIDIA path
 
@@ -27,7 +37,7 @@ go build -o bin/sims ./cmd/sims
 # Create a cluster with 2 workers, each advertising 2 fake NVIDIA GPUs, with monitoring on
 ./bin/sims gpu create --vendor nvidia --workers 2 --gpus-per-worker 2 --monitoring
 
-# Verify capacity
+# Verify capacity (or `./bin/sims gpu status` for a fuller summary)
 kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{": "}{.status.capacity.nvidia\.com/gpu}{"\n"}{end}'
 
 # Schedule a sample GPU pod

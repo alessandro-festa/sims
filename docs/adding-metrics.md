@@ -61,15 +61,15 @@ The exporters re-read annotations on every Prometheus scrape (default 15 s), so 
 
 1. Add the gauge definition to `operators/fake-rocm-gpu-operator/pkg/metrics/`.
 2. Add the value generator (idle baseline + loaded formula) to `operators/fake-rocm-gpu-operator/pkg/simulate/`.
-3. Update the AMD Grafana dashboard JSON in `dashboards/amd-gpu.json` to include a panel querying the new series.
+3. Update the AMD Grafana dashboard JSON at `charts/sims-monitoring/dashboards/amd-gpu.json` to include a panel querying the new series.
 4. Add a unit test in `pkg/simulate` with a seeded RNG asserting deterministic output for a known annotation.
 
 ## Adding panels to the NVIDIA dashboard
 
-The NVIDIA dashboard is vendored at `dashboards/nvidia-dcgm.json` (Grafana ID 12239). To refresh from upstream:
+The NVIDIA dashboard is vendored at `charts/sims-monitoring/dashboards/nvidia-dcgm.json` (Grafana ID 12239). The JSON lives inside the chart so Helm's `.Files.Get` can reach it from the dashboard ConfigMap template. To refresh from upstream:
 
 ```bash
 ./hack/update-dashboards.sh nvidia
 ```
 
-To add a custom panel, edit the JSON directly and bump the `version` field. The dashboard ConfigMap is auto-reloaded by Grafana's sidecar within ~30 s of `helm upgrade`.
+To add a custom panel, edit the JSON directly and bump the top-level `version` field. The dashboard ConfigMap is auto-reloaded by Grafana's sidecar within ~30 s of `helm upgrade`.

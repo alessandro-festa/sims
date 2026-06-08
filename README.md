@@ -21,13 +21,15 @@ Pre-alpha. Phased delivery:
 
 | Phase | Scope | Status |
 |------:|:------|:------:|
-| 1 | NVIDIA cluster end-to-end (no monitoring) | in progress |
-| 2 | Monitoring chart + `sims gpu dashboard` UX | planned |
+| 1 | NVIDIA cluster end-to-end (no monitoring) | ✅ done |
+| 2 | Monitoring chart + `sims gpu dashboard` UX | ✅ done |
 | 3 | AMD metrics exporter standalone | planned |
 | 4 | AMD device plugin (kubelet gRPC) | planned |
 | 5 | AMD topology + node labeller + pod-driven metrics | planned |
 | 6 | `DeviceConfig` CRD reconciler (optional) | planned |
 | 7 | Parity polish (compute partitions, `rocm-smi` shim) | planned |
+
+**What works today (Phases 1 + 2):** `sims gpu create --vendor nvidia [--monitoring]`, `sims gpu sample`, `sims gpu status`, `sims gpu load-image`, `sims gpu dashboard [--open|--stop]`, `sims gpu monitoring enable|disable`, `sims gpu delete`, `sims gpu doctor`. The AMD path returns a "Phase 3+" error until the operator lands.
 
 See [docs/architecture.md](docs/architecture.md) for the full design.
 
