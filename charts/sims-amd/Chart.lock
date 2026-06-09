@@ -3,4 +3,4 @@ dependencies:
   repository: file://../../operators/fake-rocm-gpu-operator/chart
   version: 0.1.0
 digest: sha256:763dddee2c8e60d90462da414d1f5b9b2496445863768af82e03929316285e01
-generated: "2026-06-09T11:57:38.050194+02:00"
+generated: "2026-06-09T16:06:32.49961+02:00"

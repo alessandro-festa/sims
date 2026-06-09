@@ -1,4 +1,3 @@
-{{- if .Values.nodeLabeller.enabled }}
 {{- /*
 RBAC for the node-labeller. Needs nodes:patch cluster-wide (each DS pod
 patches its own node's labels at startup, then sleeps).
@@ -44,4 +43,3 @@ subjects:
   - kind: ServiceAccount
     name: amd-node-labeller
     namespace: {{ .Release.Namespace }}
-{{- end }}

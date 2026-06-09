@@ -1,0 +1,26 @@
+{{- if .Values.deviceConfig.create }}
+{{- /*
+Default DeviceConfig CR templated by the chart so a fresh `helm install`
+results in the same workloads the chart used to render directly (device-
+plugin, metrics-exporter, status-updater, node-labeller — all enabled).
+
+Set deviceConfig.create=false to apply your own CR. Useful for testing
+a real ROCm/gpu-operator manifest against sims (the surface is
+compatible; we accept the same fields).
+*/}}
+apiVersion: amd.sims.io/v1alpha1
+kind: DeviceConfig
+metadata:
+  name: default
+  labels:
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/part-of: sims
+spec:
+  devicePlugin:
+    enable: {{ .Values.devicePlugin.enabled }}
+  metricsExporter:
+    enable: true
+  nodeSelector:
+    {{- toYaml .Values.nodeSelector | nindent 4 }}
+{{- end }}
