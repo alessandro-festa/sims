@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -22,6 +23,7 @@ const (
 	prometheusServiceName  = "sims-monitoring-kube-prome-prometheus"
 	prometheusServicePort  = "9090"
 	dcgmUtilMetric         = "DCGM_FI_DEV_GPU_UTIL"
+	dcgmTempMetric         = "DCGM_FI_DEV_GPU_TEMP"
 	dcgmSampleTimeout      = 90 * time.Second
 	dashboardLoadedTimeout = 90 * time.Second
 )
@@ -34,6 +36,13 @@ func TestNVIDIA_Monitoring_EndToEnd(t *testing.T) {
 	defer cancel()
 	t.Cleanup(func() { cleanupCluster(t, clusterName) })
 
+	// Pre-build the Phase 7 DCGM extras sidecar image. The chart pulls
+	// it from the local registry once we push (step 1.5 below).
+	t.Log("building fake-dcgm-extras image")
+	if err := buildDCGMExtrasImage(ctx); err != nil {
+		t.Fatalf("build fake-dcgm-extras image: %v", err)
+	}
+
 	// 1. Create with --monitoring (takes ~2-4 min on first run).
 	t.Log("creating sims-nvidia cluster with --monitoring (this takes 2-4 min)")
 	createCtx, cancelCreate := context.WithTimeout(ctx, createMonTimeout)
@@ -41,6 +50,14 @@ func TestNVIDIA_Monitoring_EndToEnd(t *testing.T) {
 	if _, stderr, err := runSims(createCtx, "gpu", "create",
 		"--vendor", "nvidia", "--workers", "2", "--gpus-per-worker", "2", "--monitoring"); err != nil {
 		t.Fatalf("sims gpu create --monitoring failed: %v\nstderr:\n%s", err, stderr)
+	}
+
+	// 1.5. Push fake-dcgm-extras to the local registry. Until this runs
+	// the DS is in ImagePullBackOff; DCGM_FI_DEV_GPU_UTIL still works
+	// (emitted by fake-gpu-operator's status-exporter), but
+	// DCGM_FI_DEV_GPU_TEMP won't appear until the extras image is up.
+	if _, stderr, err := runSims(ctx, "gpu", "load-image", "fake-dcgm-extras:dev"); err != nil {
+		t.Fatalf("sims gpu load-image (extras): %v\nstderr:\n%s", err, stderr)
 	}
 
 	kc, err := newKubeconfig(ctx, clusterName)
@@ -82,6 +99,26 @@ func TestNVIDIA_Monitoring_EndToEnd(t *testing.T) {
 	if err := waitForPrometheusMetric(ctx, cs, dcgmUtilMetric, dcgmSampleTimeout); err != nil {
 		t.Errorf("prometheus never saw %s: %v", dcgmUtilMetric, err)
 	}
+
+	// 5. Phase 7: extras sidecar should be feeding DCGM_FI_DEV_GPU_TEMP
+	// into Prometheus. The vendored dashboard's temperature panel
+	// depends on this metric; before Phase 7 it stayed empty.
+	t.Log("waiting for Prometheus to report a DCGM_FI_DEV_GPU_TEMP sample (Phase 7 extras sidecar)")
+	if err := waitForPrometheusMetric(ctx, cs, dcgmTempMetric, dcgmSampleTimeout); err != nil {
+		t.Errorf("prometheus never saw %s: %v", dcgmTempMetric, err)
+	}
+}
+
+// buildDCGMExtrasImage runs the fake-dcgm-extras Makefile's `image`
+// target, equivalent to buildOperatorImage in amd_test.go but for the
+// Phase 7 sidecar binary.
+func buildDCGMExtrasImage(ctx context.Context) error {
+	imgCtx, cancel := context.WithTimeout(ctx, amdImageBuildTimeout) // 5 min, same budget
+	defer cancel()
+	cmd := exec.CommandContext(imgCtx, "make", "-C", "../operators/fake-dcgm-extras", "image")
+	cmd.Stdout = os.Stderr
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
 
 // serviceProxyGet does an in-cluster GET via the Kubernetes API server's

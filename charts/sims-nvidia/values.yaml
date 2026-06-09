@@ -19,3 +19,17 @@ fake-gpu-operator:
     enabled: false
   nvidiaDraDriver:
     enabled: false
+
+# fake-dcgm-extras backfills the DCGM_FI_DEV_* gauges fake-gpu-operator
+# doesn't emit (temperature, power, clocks, PCIe, ECC, fan). Without this
+# the upstream dashboard's panels for those families stay empty.
+extraMetrics:
+  enabled: true
+
+fake-dcgm-extras:
+  gpusPerNode: 2
+  productName: "Tesla T4"
+  image:
+    repository: localhost:5001/fake-dcgm-extras
+    tag: dev
+    pullPolicy: IfNotPresent
