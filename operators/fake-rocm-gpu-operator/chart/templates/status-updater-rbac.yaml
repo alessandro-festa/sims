@@ -1,0 +1,80 @@
+{{- if .Values.statusUpdater.enabled }}
+{{- /*
+RBAC for the status-updater. Needs pods:list,watch cluster-wide (to see
+which pods carry sims.io/assigned-gpus) and configmaps:get,create,update
+on the chart namespace (to maintain the topology CM).
+*/}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: amd-status-updater
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: amd-status-updater
+    app.kubernetes.io/name: fake-rocm-gpu-operator
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/part-of: sims
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Name }}-amd-status-updater
+  labels:
+    app: amd-status-updater
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/part-of: sims
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Name }}-amd-status-updater
+  labels:
+    app: amd-status-updater
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/part-of: sims
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Release.Name }}-amd-status-updater
+subjects:
+  - kind: ServiceAccount
+    name: amd-status-updater
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: amd-status-updater
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: amd-status-updater
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/part-of: sims
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "create", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: amd-status-updater
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: amd-status-updater
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/part-of: sims
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: amd-status-updater
+subjects:
+  - kind: ServiceAccount
+    name: amd-status-updater
+    namespace: {{ .Release.Namespace }}
+{{- end }}

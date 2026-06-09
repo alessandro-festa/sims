@@ -33,7 +33,7 @@ Metric names mirror the real [ROCm/device-metrics-exporter](https://github.com/R
 | `amd_gpu_fan_speed` (%) | 20 | `20 + util × 0.6` |
 | `amd_pcie_bandwidth` (MB/s) | 100 | `100 + util × 80` |
 
-Phase 3 labels: `gpu_id`, `serial_number`, `card_series`, `card_model`, `hostname`. Every GPU on every node reports the idle baseline; load-driven values land in Phase 5 alongside the `status-updater` that maps pods → GPUs (`pod`, `namespace`, `container` labels added then).
+Labels: `gpu_id`, `serial_number`, `card_series`, `card_model`, `hostname`, plus `pod`, `namespace`, `container` (empty for idle GPUs). Phase 5 added the per-pod attribution: `status-updater` watches the device-plugin's `sims.io/assigned-gpus` annotation and writes a `topology` ConfigMap; the metrics-exporter reads it on every scrape so gauges follow pod assignments. When a pod carries the `sims.io/simulated-gpu-utilization: "low-high"` annotation, the exporter samples util within that range each scrape and derives the loaded values from the table above.
 
 ## Annotating pods to control utilization
 
