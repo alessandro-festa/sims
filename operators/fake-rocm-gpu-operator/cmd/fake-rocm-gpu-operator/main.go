@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/alessandro-festa/sims/operators/fake-rocm-gpu-operator/internal/controller"
 	"github.com/alessandro-festa/sims/operators/fake-rocm-gpu-operator/internal/deviceplugin"
 	"github.com/alessandro-festa/sims/operators/fake-rocm-gpu-operator/internal/exporter"
 	"github.com/alessandro-festa/sims/operators/fake-rocm-gpu-operator/internal/nodelabeller"
@@ -27,14 +28,13 @@ Subcommands:
   device-plugin      Kubelet device-plugin advertising amd.com/gpu.
   status-updater     Watch pods, write per-node topology ConfigMap.
   node-labeller      Patch node labels at startup.
-  controller         (Phase 6) Reconcile DeviceConfig CRDs.
+  controller         Reconcile DeviceConfig CRDs into child workloads.
 
 Run 'fake-rocm-gpu-operator <subcommand> --help' for subcommand flags.
 `
 
-var phaseStubs = map[string]string{
-	"controller": "controller lands in Phase 6 of sims; see operators/fake-rocm-gpu-operator/README.md",
-}
+// Phase 6 wires the controller; no more stubs.
+var phaseStubs = map[string]string{}
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -75,6 +75,10 @@ func run(args []string) error {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 		return nodelabeller.Run(ctx, subArgs, os.Stderr)
+	case "controller":
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		return controller.Run(ctx, subArgs, os.Stderr)
 	}
 
 	if msg, ok := phaseStubs[sub]; ok {

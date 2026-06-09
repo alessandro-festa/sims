@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: amd-deviceconfig-controller
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: amd-deviceconfig-controller
+    app.kubernetes.io/name: fake-rocm-gpu-operator
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/part-of: sims
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: amd-deviceconfig-controller
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: amd-deviceconfig-controller
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      serviceAccountName: amd-deviceconfig-controller
+      containers:
+        - name: controller
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - controller
+            - --namespace={{ .Release.Namespace }}
+            - --image={{ .Values.image.repository }}:{{ .Values.image.tag }}
+            - --image-pull-policy={{ .Values.image.pullPolicy }}
+            - --gpus-per-node={{ .Values.gpusPerNode }}
+            - --product-name={{ .Values.productName }}
+            - --gpu-memory-bytes={{ int64 .Values.gpuMemoryBytes }}
+            - --resource-name={{ .Values.devicePlugin.resourceName }}
+            - --default-node-selector={{ join "," (toStrings (keys .Values.nodeSelector | sortAlpha)) }}={{ index .Values.nodeSelector (first (keys .Values.nodeSelector | sortAlpha)) }}
+          ports:
+            - name: metrics
+              containerPort: 8080
+            - name: probes
+              containerPort: 8081
+          readinessProbe:
+            httpGet: { path: /readyz, port: probes }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /healthz, port: probes }
+            periodSeconds: 30
+          resources:
+            {{- toYaml .Values.controller.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            capabilities:
+              drop: ["ALL"]

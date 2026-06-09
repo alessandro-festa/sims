@@ -1,4 +1,3 @@
-{{- if .Values.devicePlugin.enabled }}
 {{- /*
 RBAC for the device-plugin. Needs pods:get/list/watch/patch cluster-wide
 to write the sims.io/assigned-gpus annotation onto whichever pod the
@@ -46,4 +45,3 @@ subjects:
   - kind: ServiceAccount
     name: amd-device-plugin
     namespace: {{ .Release.Namespace }}
-{{- end }}

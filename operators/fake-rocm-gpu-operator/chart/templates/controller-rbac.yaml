@@ -1,0 +1,66 @@
+{{- /*
+RBAC for the DeviceConfig reconciler. Needs:
+  - deviceconfigs (read + status update) — its own CRs
+  - daemonsets / deployments / services — child workloads it manages
+  - configmaps — to read the topology CM during status checks (future)
+
+The chart keeps the per-workload SAs around (device-plugin, metrics-
+exporter, status-updater, node-labeller) — the controller just
+references them when building Pods, it does NOT create them.
+*/}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: amd-deviceconfig-controller
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: amd-deviceconfig-controller
+    app.kubernetes.io/name: fake-rocm-gpu-operator
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/part-of: sims
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Name }}-amd-deviceconfig-controller
+  labels:
+    app: amd-deviceconfig-controller
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/part-of: sims
+rules:
+  - apiGroups: ["amd.sims.io"]
+    resources: ["deviceconfigs"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+  - apiGroups: ["amd.sims.io"]
+    resources: ["deviceconfigs/status"]
+    verbs: ["get", "update", "patch"]
+  - apiGroups: ["apps"]
+    resources: ["daemonsets", "deployments"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Name }}-amd-deviceconfig-controller
+  labels:
+    app: amd-deviceconfig-controller
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/part-of: sims
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Release.Name }}-amd-deviceconfig-controller
+subjects:
+  - kind: ServiceAccount
+    name: amd-deviceconfig-controller
+    namespace: {{ .Release.Namespace }}

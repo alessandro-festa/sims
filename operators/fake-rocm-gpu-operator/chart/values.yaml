@@ -6,75 +6,49 @@ image:
   tag: dev
   pullPolicy: IfNotPresent
 
-# Per-node fake GPU configuration.
+# Per-node fake GPU configuration. These flow through the controller
+# subcommand's flags to every child workload (device-plugin, metrics-
+# exporter, status-updater, node-labeller).
 gpusPerNode: 2
 productName: MI300X
 gpuMemoryBytes: 206158430208   # 192 GiB
 
-# DaemonSet placement. sims kind workers carry sims.io/gpu-vendor=amd; bare
-# helm installs against real clusters can override this to label their nodes.
+# Default nodeSelector applied to child workloads when the DeviceConfig
+# CR's spec doesn't set its own. sims kind workers carry
+# sims.io/gpu-vendor=amd; standalone helm installs against real clusters
+# can override this. The controller serializes this to a flag — keep it
+# to a single label pair, multi-label support requires CR overrides.
 nodeSelector:
   sims.io/gpu-vendor: amd
 
 tolerations: []
 
-# Metrics endpoint port. Service name is fixed at amd-device-metrics-exporter
-# so the sims-monitoring ServiceMonitor target stays stable.
+# Metrics endpoint port for the metrics-exporter Service the controller
+# creates.
 service:
   port: 5000
 
-resources:
-  requests:
-    cpu: 10m
-    memory: 32Mi
-  limits:
-    cpu: 100m
-    memory: 128Mi
+# Whether the chart templates a default DeviceConfig CR. With this true
+# (the default), `helm install` immediately spins up the four workloads
+# via the controller. Set to false if you want to apply your own CR
+# (e.g., to test a real ROCm/gpu-operator DeviceConfig manifest).
+deviceConfig:
+  create: true
 
 # Device-plugin: kubelet-facing gRPC server that advertises amd.com/gpu
-# capacity and lets pods actually be admitted (vs the Phase 3 capacity-
-# patcher Job which only set node-status fields, leaving the kubelet
-# without an allocator). Phase 4 default = enabled.
+# capacity. `.enabled` controls whether the default DeviceConfig CR turns
+# it on (Phase 4 default = true). To disable at runtime, edit the CR's
+# spec.devicePlugin.enable.
 devicePlugin:
   enabled: true
   resourceName: amd.com/gpu
+
+# Controller (DeviceConfig reconciler) — the new Phase 6 workload.
+controller:
   resources:
     requests:
       cpu: 10m
-      memory: 32Mi
-    limits:
-      cpu: 100m
-      memory: 128Mi
-
-# status-updater: single-replica Deployment that watches pods cluster-
-# wide + maintains the topology ConfigMap mapping GPUs to the pods that
-# hold them. The metrics-exporter reads that CM on every scrape to add
-# pod/namespace/container labels.
-statusUpdater:
-  enabled: true
-  reconcileInterval: 5s
-  resources:
-    requests:
-      cpu: 10m
-      memory: 32Mi
-    limits:
-      cpu: 100m
-      memory: 128Mi
-
-# node-labeller: DaemonSet that patches each GPU node with the AMD
-# product / CU / SIMD / family / VRAM labels real ROCm/gpu-operator
-# emits. productName is inherited from the top-level value.
-nodeLabeller:
-  enabled: true
-  cuCount: 304
-  simdCount: 1216
-  deviceID: "0x74a1"
-  family: MI300
-  vram: 192GB
-  resources:
-    requests:
-      cpu: 5m
-      memory: 16Mi
-    limits:
-      cpu: 50m
       memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
