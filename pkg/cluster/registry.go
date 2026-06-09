@@ -69,6 +69,53 @@ func ConnectRegistryToKindNetwork(ctx context.Context) error {
 		kindNetworkName, DefaultRegistryName, err, strings.TrimSpace(string(out)))
 }
 
+// WriteContainerdHostsToml writes /etc/containerd/certs.d/localhost:<port>/
+// hosts.toml on every node of the named kind cluster, telling containerd to
+// pull localhost:<port>/* via the kind-registry container on the kind
+// docker network. Required because containerd 1.7+ no longer honors the
+// legacy `[plugins."io.containerd.grpc.v1.cri".registry.mirrors.*]` config
+// block — we now set `config_path` instead and host-config TOML files take
+// over. Call AFTER the cluster is up.
+func WriteContainerdHostsToml(ctx context.Context, clusterName string) error {
+	nodes, err := listKindNodes(ctx, clusterName)
+	if err != nil {
+		return err
+	}
+	dir := fmt.Sprintf("/etc/containerd/certs.d/localhost:%d", DefaultRegistryPort)
+	body := fmt.Sprintf(`server = "http://localhost:%d"
+
+[host."http://%s:%d"]
+  capabilities = ["pull", "resolve"]
+`, DefaultRegistryPort, DefaultRegistryName, DefaultRegistryPort)
+	for _, n := range nodes {
+		if out, err := exec.CommandContext(ctx, "docker", "exec", n, "mkdir", "-p", dir).CombinedOutput(); err != nil {
+			return fmt.Errorf("mkdir %s on %s: %w: %s", dir, n, err, strings.TrimSpace(string(out)))
+		}
+		cmd := exec.CommandContext(ctx, "docker", "exec", "-i", n, "sh", "-c", "cat > "+dir+"/hosts.toml")
+		cmd.Stdin = strings.NewReader(body)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("write hosts.toml on %s: %w: %s", n, err, strings.TrimSpace(string(out)))
+		}
+	}
+	return nil
+}
+
+func listKindNodes(ctx context.Context, clusterName string) ([]string, error) {
+	cmd := exec.CommandContext(ctx, "docker", "ps", "--filter",
+		"label=io.x-k8s.kind.cluster="+clusterName, "--format", "{{.Names}}")
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("docker ps for kind nodes of %s: %w", clusterName, err)
+	}
+	var names []string
+	for line := range strings.SplitSeq(strings.TrimSpace(string(out)), "\n") {
+		if line != "" {
+			names = append(names, line)
+		}
+	}
+	return names, nil
+}
+
 // MaybeStopRegistry removes the registry container, but only when no
 // sims-managed kind clusters remain on this host. Cluster ownership is
 // detected via the "sims-" name prefix; non-sims kind clusters do not
@@ -119,5 +166,9 @@ func noSuchContainer(s string) bool {
 
 func alreadyConnected(s string) bool {
 	s = strings.ToLower(s)
-	return strings.Contains(s, "already exists") || strings.Contains(s, "already attached")
+	// Docker's error wording varies by version/scenario; cover all the
+	// strings we've seen for "this container is already on this network".
+	return strings.Contains(s, "already exists") ||
+		strings.Contains(s, "already attached") ||
+		strings.Contains(s, "already connected")
 }

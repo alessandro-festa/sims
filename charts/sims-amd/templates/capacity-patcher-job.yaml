@@ -38,7 +38,9 @@ spec:
       serviceAccountName: {{ .Release.Name }}-amd-capacity-patcher
       containers:
         - name: patcher
-          image: bitnami/kubectl:1.31
+          # bitnami/kubectl tags use full semver (1.31.X) — bare 1.31 was
+          # never published and the pull fails. Pin to a known-existing tag.
+          image: bitnami/kubectl:1.31.0
           imagePullPolicy: IfNotPresent
           env:
             - name: GPUS

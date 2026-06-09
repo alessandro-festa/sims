@@ -33,6 +33,7 @@ func TestCollector_EmitsAllNineFamilies(t *testing.T) {
 		"DCGM_FI_DEV_PCIE_TX_THROUGHPUT",
 		"DCGM_FI_DEV_POWER_USAGE",
 		"DCGM_FI_DEV_SM_CLOCK",
+		"DCGM_FI_PROF_PIPE_TENSOR_ACTIVE",
 	}
 	if len(got) != len(want) {
 		t.Fatalf("metric count = %d, want %d\ngot:  %v\nwant: %v", len(got), len(want), got, want)

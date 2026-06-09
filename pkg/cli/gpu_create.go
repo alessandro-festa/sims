@@ -107,6 +107,11 @@ func runCreate(ctx context.Context, stdout io.Writer, o *createOpts) error {
 		return err
 	}
 
+	log.Info("configuring containerd registry mirror on each node")
+	if err := cluster.WriteContainerdHostsToml(ctx, name); err != nil {
+		return err
+	}
+
 	kc, err := provider.KubeConfig(ctx, name)
 	if err != nil {
 		return err
@@ -266,14 +271,14 @@ func buildNVIDIAValues(gpusPerWorker int) map[string]any {
 }
 
 // buildAMDValues propagates --gpus-per-worker into both sims-amd (which
-// drives the capacity-patcher Job) and the fake-rocm-gpu-operator subchart
-// (which sets --gpus-per-node on the metrics-exporter DaemonSet).
+// drives the capacity-patcher Job when enabled) and the fake-rocm-gpu-
+// operator subchart (which sets --gpus-per-node on the metrics-exporter
+// + device-plugin DaemonSets). Does NOT override capacityPatching.enabled
+// — Phase 4's chart default (false) wins so the device-plugin is the sole
+// capacity source; users can re-enable the patcher via --set if needed.
 func buildAMDValues(gpusPerWorker int) map[string]any {
 	return map[string]any{
 		"gpusPerNode": gpusPerWorker,
-		"capacityPatching": map[string]any{
-			"enabled": true,
-		},
 		"fake-rocm-gpu-operator": map[string]any{
 			"gpusPerNode": gpusPerWorker,
 		},

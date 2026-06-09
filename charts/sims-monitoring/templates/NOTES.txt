@@ -14,8 +14,10 @@ will do the pre-create for you and call `helm install` with
 `CreateNamespace=false`.
 
 Default credentials for Grafana:
-  user:     {{ .Values.grafana.adminUser | default "admin" }}
-  password: {{ .Values.grafana.adminPassword | default "prom-operator" }}
+{{- with (index .Values "kube-prometheus-stack" "grafana") }}
+  user:     {{ .adminUser | default "admin" }}
+  password: {{ .adminPassword | default "prom-operator" }}
+{{- end }}
 
 Port-forward Grafana:
   kubectl -n {{ .Release.Namespace }} port-forward svc/{{ .Release.Name }}-grafana 3000:80

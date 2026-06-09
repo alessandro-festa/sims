@@ -151,8 +151,8 @@ nodes:
 {{- end }}
 containerdConfigPatches:
   - |-
-    [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:{{ .RegistryPort }}"]
-      endpoint = ["http://{{ .RegistryName }}:{{ .RegistryPort }}"]
+    [plugins."io.containerd.grpc.v1.cri".registry]
+      config_path = "/etc/containerd/certs.d"
 {{- if .EnableDRA }}
 featureGates:
   DynamicResourceAllocation: true

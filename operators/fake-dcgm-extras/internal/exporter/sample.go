@@ -93,6 +93,7 @@ func fillIdle(s *dcgm.Snapshot) {
 	s.PCIeTXThroughput = idlePCIeThroughput
 	s.PCIeRXThroughput = idlePCIeThroughput
 	s.FanSpeed = idleFanSpeed
+	s.TensorPipeActive = 0
 }
 
 func fillLoaded(s *dcgm.Snapshot, util float64, rng *rand.Rand) {
@@ -103,6 +104,10 @@ func fillLoaded(s *dcgm.Snapshot, util float64, rng *rand.Rand) {
 	s.PCIeTXThroughput = idlePCIeThroughput + util*pciePerUtil
 	s.PCIeRXThroughput = idlePCIeThroughput + util*pciePerUtil
 	s.FanSpeed = idleFanSpeed + util*fanPerUtil
+	// Tensor pipe activity tracks GPU utilization but with a discount —
+	// not every cycle runs HMMA instructions even when the GPU is busy.
+	// 70% of util feels right for typical mixed AI workloads.
+	s.TensorPipeActive = util / 100 * 0.7
 }
 
 // sampleUtil parses a "low-high" range and samples within. Falls back

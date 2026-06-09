@@ -48,6 +48,7 @@ type Snapshot struct {
 	FanSpeed         float64 // %
 	ECCSBETotal      float64 // counter-as-gauge (idle = 0)
 	ECCDBETotal      float64 // counter-as-gauge (idle = 0)
+	TensorPipeActive float64 // [0, 1] fraction of cycles tensor cores active
 }
 
 // Sampler returns the current Snapshots the Collector should emit.
@@ -72,9 +73,10 @@ type Collector struct {
 	memClock    *prometheus.Desc
 	pcieTX      *prometheus.Desc
 	pcieRX      *prometheus.Desc
-	fanSpeed    *prometheus.Desc
-	eccSBETotal *prometheus.Desc
-	eccDBETotal *prometheus.Desc
+	fanSpeed         *prometheus.Desc
+	eccSBETotal      *prometheus.Desc
+	eccDBETotal      *prometheus.Desc
+	tensorPipeActive *prometheus.Desc
 
 	registry *prometheus.Registry
 }
@@ -90,9 +92,10 @@ func New(sampler Sampler) *Collector {
 		memClock:    desc("DCGM_FI_DEV_MEM_CLOCK", "Memory clock in MHz."),
 		pcieTX:      desc("DCGM_FI_DEV_PCIE_TX_THROUGHPUT", "PCIe transmit throughput in KB/s."),
 		pcieRX:      desc("DCGM_FI_DEV_PCIE_RX_THROUGHPUT", "PCIe receive throughput in KB/s."),
-		fanSpeed:    desc("DCGM_FI_DEV_FAN_SPEED", "Fan speed as percent of max."),
-		eccSBETotal: desc("DCGM_FI_DEV_ECC_SBE_VOL_TOTAL", "ECC single-bit volatile errors total (cumulative)."),
-		eccDBETotal: desc("DCGM_FI_DEV_ECC_DBE_VOL_TOTAL", "ECC double-bit volatile errors total (cumulative)."),
+		fanSpeed:         desc("DCGM_FI_DEV_FAN_SPEED", "Fan speed as percent of max."),
+		eccSBETotal:      desc("DCGM_FI_DEV_ECC_SBE_VOL_TOTAL", "ECC single-bit volatile errors total (cumulative)."),
+		eccDBETotal:      desc("DCGM_FI_DEV_ECC_DBE_VOL_TOTAL", "ECC double-bit volatile errors total (cumulative)."),
+		tensorPipeActive: desc("DCGM_FI_PROF_PIPE_TENSOR_ACTIVE", "Fraction of cycles the tensor (HMMA) pipe was active, [0, 1]."),
 	}
 	c.registry = prometheus.NewRegistry()
 	c.registry.MustRegister(c)
@@ -123,6 +126,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		ch <- prometheus.MustNewConstMetric(c.fanSpeed, prometheus.GaugeValue, s.FanSpeed, labels...)
 		ch <- prometheus.MustNewConstMetric(c.eccSBETotal, prometheus.GaugeValue, s.ECCSBETotal, labels...)
 		ch <- prometheus.MustNewConstMetric(c.eccDBETotal, prometheus.GaugeValue, s.ECCDBETotal, labels...)
+		ch <- prometheus.MustNewConstMetric(c.tensorPipeActive, prometheus.GaugeValue, s.TensorPipeActive, labels...)
 	}
 }
 
@@ -130,7 +134,7 @@ func (c *Collector) allDescs() []*prometheus.Desc {
 	return []*prometheus.Desc{
 		c.gpuTemp, c.powerUsage, c.smClock, c.memClock,
 		c.pcieTX, c.pcieRX, c.fanSpeed,
-		c.eccSBETotal, c.eccDBETotal,
+		c.eccSBETotal, c.eccDBETotal, c.tensorPipeActive,
 	}
 }
 
