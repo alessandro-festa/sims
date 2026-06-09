@@ -5,6 +5,12 @@ This stands in for a real device-plugin until Phase 4 lands fake-rocm-gpu-
 operator's device-plugin subcommand; set capacityPatching.enabled=false
 then to disable it.
 
+Patches BOTH status.capacity AND status.allocatable. The scheduler binds
+pods against allocatable, and kubelet only computes allocatable for
+extended resources from device-plugin registrations — so without writing
+allocatable explicitly, pods requesting amd.com/gpu would stay Pending
+with "Insufficient amd.com/gpu" even though capacity reports the value.
+
 Selects nodes by the sims.io/gpu-vendor=amd label that pkg/config/kind_
 config.go writes into the kind cluster manifest. JSON Patch op:add on an
 object key is idempotent (it replaces if the key already exists), so
@@ -47,9 +53,11 @@ spec:
                 exit 0
               fi
               for n in $NODES; do
-                echo "patching $n with amd.com/gpu=$GPUS"
-                kubectl patch "$n" --subresource=status --type=json \
-                  -p "[{\"op\":\"add\",\"path\":\"/status/capacity/amd.com~1gpu\",\"value\":\"$GPUS\"}]"
+                echo "patching $n with amd.com/gpu=$GPUS (capacity + allocatable)"
+                kubectl patch "$n" --subresource=status --type=json -p "[
+                  {\"op\":\"add\",\"path\":\"/status/capacity/amd.com~1gpu\",\"value\":\"$GPUS\"},
+                  {\"op\":\"add\",\"path\":\"/status/allocatable/amd.com~1gpu\",\"value\":\"$GPUS\"}
+                ]"
               done
           securityContext:
             allowPrivilegeEscalation: false
