@@ -1,0 +1,22 @@
+apiVersion: v2
+name: fake-rocm-gpu-operator
+description: |
+  Standalone Helm chart for fake-rocm-gpu-operator, the AMD sister project to
+  run-ai/fake-gpu-operator. Phase 3 ships only the metrics-exporter DaemonSet
+  and Service; device-plugin, status-updater, node-labeller, and controller
+  land in Phases 4-6.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+kubeVersion: ">=1.28.0-0"
+keywords:
+  - gpu
+  - amd
+  - rocm
+  - simulator
+home: https://github.com/alessandro-festa/sims
+sources:
+  - https://github.com/alessandro-festa/sims
+maintainers:
+  - name: alessandro-festa
+    url: https://github.com/alessandro-festa

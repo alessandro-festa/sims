@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: amd-device-metrics-exporter
+  labels:
+    {{- include "fake-rocm-gpu-operator.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "fake-rocm-gpu-operator.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: gpu-metrics
+      port: {{ .Values.service.port }}
+      targetPort: gpu-metrics
+      protocol: TCP

@@ -72,7 +72,8 @@ jobs:
       - name: helm lint charts
         run: |
           set -e
-          for c in charts/*/; do
+          for c in charts/*/ operators/*/chart/; do
+            [ -f "$c/Chart.yaml" ] || continue
             echo "--- $c"
             helm lint "$c"
           done

@@ -13,8 +13,8 @@
 coverage.txt
 coverage.html
 
-# Go workspace files
-go.work
+# Go workspace lock — go.work IS committed (Phase 3+) so CI from repo root
+# sees both the parent module and operators/fake-rocm-gpu-operator/.
 go.work.sum
 
 # Helm: ignore downloaded dependency tarballs (Chart.lock IS committed so
