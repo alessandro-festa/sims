@@ -746,7 +746,7 @@
         "multi": true,
         "name": "instance",
         "options": [],
-        "query": "label_values(DCGM_FI_DEV_GPU_TEMP, instance)",
+        "query": "label_values({__name__=~\"DCGM_FI_.*\"}, instance)",
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
