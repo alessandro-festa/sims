@@ -27,8 +27,10 @@ import (
 
 const (
 	clusterName      = "sims-nvidia"
+	amdClusterName   = "sims-amd"
 	sampleNamespace  = "default"
 	samplePodName    = "sims-nvidia-sample"
+	amdSamplePodName = "sims-amd-sample"
 	createTimeout    = 4 * time.Minute
 	createMonTimeout = 8 * time.Minute
 	scheduleTimeout  = 1 * time.Minute
@@ -73,10 +75,10 @@ func runSims(ctx context.Context, args ...string) (stdout, stderr []byte, err er
 	return outBuf.Bytes(), errBuf.Bytes(), err
 }
 
-// newKubeconfig fetches the sims-nvidia kind cluster's kubeconfig.
-func newKubeconfig(ctx context.Context) ([]byte, error) {
+// newKubeconfig fetches the named kind cluster's kubeconfig.
+func newKubeconfig(ctx context.Context, name string) ([]byte, error) {
 	provider := cluster.New(nil)
-	return provider.KubeConfig(ctx, clusterName)
+	return provider.KubeConfig(ctx, name)
 }
 
 // mustClientset returns a clientset from the given kubeconfig or fails the
@@ -116,13 +118,13 @@ func waitForScheduled(ctx context.Context, cs kubernetes.Interface, namespace, n
 	}
 }
 
-// cleanupCluster runs `sims gpu delete --name <clusterName>` with a fresh
-// context and ignores errors. Use from t.Cleanup.
-func cleanupCluster(t *testing.T) {
+// cleanupCluster runs `sims gpu delete --name <name>` with a fresh context
+// and ignores errors. Use from t.Cleanup.
+func cleanupCluster(t *testing.T, name string) {
 	t.Helper()
 	cleanup, cancel := context.WithTimeout(context.Background(), deleteTimeout)
 	defer cancel()
-	if _, _, err := runSims(cleanup, "gpu", "delete", "--name", clusterName); err != nil {
+	if _, _, err := runSims(cleanup, "gpu", "delete", "--name", name); err != nil {
 		t.Logf("cleanup: gpu delete failed (best-effort): %v", err)
 	}
 }
