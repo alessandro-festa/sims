@@ -4,13 +4,16 @@
 # Set by the sims CLI based on the cluster's vendor.
 vendor: nvidia   # nvidia | amd
 
-grafana:
-  adminUser: admin
-  adminPassword: prom-operator
-
-# Pass-through to kube-prometheus-stack subchart.
+# Pass-through to kube-prometheus-stack subchart. The grafana.* keys
+# below land at the subchart's expected path (.Values.grafana.*). A
+# previous version of this file had a top-level grafana: block that the
+# subchart ignored, leading to an auto-generated admin password.
 kube-prometheus-stack:
   grafana:
+    # Default sims credentials. Override via --set for anything outside
+    # local dev.
+    adminUser: admin
+    adminPassword: prom-operator
     sidecar:
       dashboards:
         enabled: true
