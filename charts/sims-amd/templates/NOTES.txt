@@ -1,0 +1,20 @@
+sims-amd {{ .Chart.AppVersion }} installed in namespace {{ .Release.Namespace }}.
+
+Verify the metrics exporter is up:
+
+  kubectl --namespace {{ .Release.Namespace }} get ds amd-device-metrics-exporter
+  kubectl --namespace {{ .Release.Namespace }} logs ds/amd-device-metrics-exporter --tail=20
+
+Confirm amd.com/gpu capacity was patched onto each worker:
+
+  kubectl get nodes -l sims.io/gpu-vendor=amd \
+    -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.capacity.amd\.com/gpu}{"\n"}{end}'
+
+Schedule a sample pod (it will be Pending until Phase 4 ships the real
+device-plugin — the kubelet has no plugin to allocate amd.com/gpu against):
+
+  kubectl run amd-sample --image=busybox --restart=Never \
+    --overrides='{"spec":{"containers":[{"name":"amd-sample","image":"busybox","command":["sleep","3600"],"resources":{"limits":{"amd.com/gpu":"1"}}}]}}'
+
+Phase 3 ships capacity advertisement + metrics + dashboard. Device-plugin
+(Phase 4) and pod-level metric attribution (Phase 5) follow.

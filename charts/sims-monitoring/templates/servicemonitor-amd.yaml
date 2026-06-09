@@ -1,0 +1,31 @@
+{{- if eq .Values.vendor "amd" }}
+{{- /*
+ServiceMonitor for fake-rocm-gpu-operator's metrics-exporter Service.
+Lives in the sims-monitoring namespace ("monitoring") with the release
+label so kube-prometheus-stack's Prometheus selects it. namespaceSelector
+points at "gpu-operator", where sims-amd installs the Service. Port name
+and selector match operators/fake-rocm-gpu-operator/chart's Service:
+  port:     gpu-metrics (:5000)
+  selector: app=amd-device-metrics-exporter
+*/}}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .Release.Name }}-amd-device-metrics-exporter
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/part-of: sims
+spec:
+  selector:
+    matchLabels:
+      app: amd-device-metrics-exporter
+  namespaceSelector:
+    matchNames:
+      - gpu-operator
+  endpoints:
+    - port: gpu-metrics
+      interval: 15s
+      scrapeTimeout: 10s
+{{- end }}

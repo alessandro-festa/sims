@@ -1,0 +1,6 @@
+dependencies:
+- name: fake-rocm-gpu-operator
+  repository: file://../../operators/fake-rocm-gpu-operator/chart
+  version: 0.1.0
+digest: sha256:763dddee2c8e60d90462da414d1f5b9b2496445863768af82e03929316285e01
+generated: "2026-06-09T10:32:52.909961+02:00"

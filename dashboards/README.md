@@ -7,7 +7,7 @@
 | Vendor | Path | Chart | Phase |
 |---|---|---|---|
 | NVIDIA | `charts/sims-monitoring/dashboards/nvidia-dcgm.json` | `sims-monitoring` (NVIDIA branch) | Phase 2 |
-| AMD | `charts/sims-monitoring/dashboards/amd-gpu.json` *(planned)* | `sims-monitoring` (AMD branch) | Phase 3 |
+| AMD | `charts/sims-monitoring/dashboards/amd-gpu.json` | `sims-monitoring` (AMD branch) | Phase 3 |
 
 ## Refresh procedure
 
@@ -29,6 +29,8 @@ Bump the JSON's top-level `version` field after refresh so Grafana's sidecar rel
 
 ### AMD — `amd-gpu.json`
 
-- **Source:** [AMD GPU Metrics Dashboard, Grafana ID 23715](https://grafana.com/grafana/dashboards/23715/)
-- **Wired in:** Phase 3
-- **Coverage:** broader than NVIDIA from day one because `fake-rocm-gpu-operator`'s exporter is in our control — we emit all 10 metrics the dashboard queries.
+- **Source:** [AMD Instinct Single Node Dashboard, Grafana ID 23434](https://grafana.com/grafana/dashboards/23434/) — the official dashboard ROCm publishes for `ROCm/device-metrics-exporter`.
+- **Vendored revision:** 2 (uid `adud7tbrozvuoa`, schemaVersion 41, version 6) — fetched 2026-06-09 via `./hack/update-dashboards.sh amd`.
+- **Wired in:** Phase 3 — `charts/sims-monitoring/templates/dashboard-amd.yaml` renders a `grafana_dashboard: "1"` ConfigMap when `vendor=amd`.
+- **Coverage:** the dashboard queries 6 metrics (`amd_gpu_junction_temperature`, `amd_gpu_package_power`, `amd_gpu_gfx_activity`, `amd_gpu_used_vram`, `amd_gpu_health`, `amd_pcie_bandwidth`); all are emitted by `fake-rocm-gpu-operator`'s `metrics-exporter` from Phase 3 so every panel populates. Surplus gauges (`amd_gpu_total_vram`, `amd_gpu_clock_gfx`, `amd_gpu_voltage`, `amd_gpu_fan_speed`) are emitted but unused — they're available for custom panels.
+- **Heads-up:** an earlier draft of the plan referenced Grafana ID **23715** — that ID is a Portuguese Zabbix/Mikrotik dashboard, not AMD. The correct AMD ID is 23434.
