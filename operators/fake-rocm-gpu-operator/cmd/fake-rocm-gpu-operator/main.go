@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/alessandro-festa/sims/operators/fake-rocm-gpu-operator/internal/deviceplugin"
 	"github.com/alessandro-festa/sims/operators/fake-rocm-gpu-operator/internal/exporter"
 )
 
@@ -21,7 +22,7 @@ Usage:
 
 Subcommands:
   metrics-exporter   Serve AMD-namespaced Prometheus metrics for fake GPUs.
-  device-plugin      (Phase 4) Kubelet device-plugin advertising amd.com/gpu.
+  device-plugin      Kubelet device-plugin advertising amd.com/gpu.
   status-updater     (Phase 5) Watch pods, write per-node topology ConfigMap.
   node-labeller      (Phase 5) Patch node labels at startup.
   controller         (Phase 6) Reconcile DeviceConfig CRDs.
@@ -30,7 +31,6 @@ Run 'fake-rocm-gpu-operator <subcommand> --help' for subcommand flags.
 `
 
 var phaseStubs = map[string]string{
-	"device-plugin":  "device-plugin lands in Phase 4 of sims; see operators/fake-rocm-gpu-operator/README.md",
 	"status-updater": "status-updater lands in Phase 5 of sims; see operators/fake-rocm-gpu-operator/README.md",
 	"node-labeller":  "node-labeller lands in Phase 5 of sims; see operators/fake-rocm-gpu-operator/README.md",
 	"controller":     "controller lands in Phase 6 of sims; see operators/fake-rocm-gpu-operator/README.md",
@@ -63,6 +63,10 @@ func run(args []string) error {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 		return exporter.Run(ctx, subArgs, os.Stderr)
+	case "device-plugin":
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		return deviceplugin.Run(ctx, subArgs, os.Stderr)
 	}
 
 	if msg, ok := phaseStubs[sub]; ok {
