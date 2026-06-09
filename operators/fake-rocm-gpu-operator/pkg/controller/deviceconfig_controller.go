@@ -230,6 +230,9 @@ func (r *DeviceConfigReconciler) buildDevicePluginDS(cr *amdv1alpha1.DeviceConfi
 	lbl := r.commonLabels("amd-device-plugin")
 	priv := true
 	root := int64(0)
+	// Under CPX, the kubelet should see Count partitions per physical
+	// GPU. effectiveGPUs is what --gpus-per-node is told.
+	effectiveGPUs := r.Cfg.GPUsPerNode * partitionMultiplier(cr.Spec.ComputePartition)
 	return &appsv1.DaemonSet{
 		ObjectMeta: metav1.ObjectMeta{Name: "amd-device-plugin", Namespace: r.Cfg.Namespace, Labels: lbl},
 		Spec: appsv1.DaemonSetSpec{
@@ -246,7 +249,7 @@ func (r *DeviceConfigReconciler) buildDevicePluginDS(cr *amdv1alpha1.DeviceConfi
 						ImagePullPolicy: pp,
 						Args: []string{
 							"device-plugin",
-							fmt.Sprintf("--gpus-per-node=%d", r.Cfg.GPUsPerNode),
+							fmt.Sprintf("--gpus-per-node=%d", effectiveGPUs),
 							"--resource-name=" + r.Cfg.ResourceName,
 							"--kubelet-socket-dir=/var/lib/kubelet/device-plugins",
 							"--pod-resources-socket=/var/lib/kubelet/pod-resources/kubelet.sock",
@@ -272,11 +275,17 @@ func (r *DeviceConfigReconciler) buildDevicePluginDS(cr *amdv1alpha1.DeviceConfi
 	}
 }
 
-func (r *DeviceConfigReconciler) buildMetricsExporterDS(_ *amdv1alpha1.DeviceConfig, nodeSelector map[string]string) *appsv1.DaemonSet {
+func (r *DeviceConfigReconciler) buildMetricsExporterDS(cr *amdv1alpha1.DeviceConfig, nodeSelector map[string]string) *appsv1.DaemonSet {
 	lbl := r.commonLabels("amd-device-metrics-exporter")
 	nonRoot := int64(65532)
 	tBool := true
 	fBool := false
+	// metrics-exporter sees the PHYSICAL gpu count + partition mode so
+	// it can attach partition_mode/partition_id labels per series. The
+	// device-plugin DS (above) advertises gpusPerNode × Count to the
+	// kubelet under CPX, but the per-partition GPU identity belongs in
+	// the exporter.
+	mode, count := normalizePartition(cr.Spec.ComputePartition)
 	return &appsv1.DaemonSet{
 		ObjectMeta: metav1.ObjectMeta{Name: "amd-device-metrics-exporter", Namespace: r.Cfg.Namespace, Labels: lbl},
 		Spec: appsv1.DaemonSetSpec{
@@ -297,6 +306,8 @@ func (r *DeviceConfigReconciler) buildMetricsExporterDS(_ *amdv1alpha1.DeviceCon
 							"--product-name=" + r.Cfg.ProductName,
 							fmt.Sprintf("--memory-bytes=%d", r.Cfg.GPUMemoryBytes),
 							"--topology-namespace=" + r.Cfg.Namespace,
+							"--partition-mode=" + mode,
+							fmt.Sprintf("--partition-count=%d", count),
 						},
 						Env:   []corev1.EnvVar{{Name: "NODE_NAME", ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"}}}},
 						Ports: []corev1.ContainerPort{{Name: "gpu-metrics", ContainerPort: 5000, Protocol: corev1.ProtocolTCP}},
@@ -405,3 +416,23 @@ func (r *DeviceConfigReconciler) buildNodeLabellerDS(_ *amdv1alpha1.DeviceConfig
 }
 
 func hostPathTypePtr(t corev1.HostPathType) *corev1.HostPathType { return &t }
+
+// normalizePartition coerces the CR's ComputePartition into the
+// invariant the workloads expect: under SPX (or empty), Count is 1.
+// Returns (mode, count) ready to forward as flags.
+func normalizePartition(p amdv1alpha1.ComputePartitionSpec) (string, int32) {
+	if p.Mode != "cpx" {
+		return "spx", 1
+	}
+	if p.Count < 1 {
+		return "cpx", 1
+	}
+	return "cpx", p.Count
+}
+
+// partitionMultiplier returns Count under CPX, 1 otherwise — used to
+// multiply gpusPerNode when computing what the device-plugin advertises.
+func partitionMultiplier(p amdv1alpha1.ComputePartitionSpec) int32 {
+	_, count := normalizePartition(p)
+	return count
+}

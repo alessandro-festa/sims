@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"slices"
 	"testing"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -145,6 +146,72 @@ func TestReconcile_CRMissingIsNoop(t *testing.T) {
 	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: client.ObjectKey{Name: "nonexistent"}}); err != nil {
 		t.Fatalf("expected no error for missing CR, got: %v", err)
 	}
+}
+
+// TestReconcile_CPXMultipliesAdvertisedCapacity is #48's acceptance
+// shape: switching computePartition.mode=cpx + count=N makes the
+// device-plugin DS advertise gpusPerNode × N devices; switching back
+// to spx restores. metrics-exporter DS gains partition flags so it can
+// stamp partition_mode/partition_id labels.
+func TestReconcile_CPXMultipliesAdvertisedCapacity(t *testing.T) {
+	cr := &amdv1alpha1.DeviceConfig{
+		ObjectMeta: metav1.ObjectMeta{Name: "default"},
+		Spec: amdv1alpha1.DeviceConfigSpec{
+			ComputePartition: amdv1alpha1.ComputePartitionSpec{Mode: "cpx", Count: 4},
+		},
+	}
+	r, c := newReconciler(t, cr)
+	ctx := context.Background()
+
+	if _, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKey{Name: "default"}}); err != nil {
+		t.Fatalf("reconcile cpx: %v", err)
+	}
+
+	// GPUsPerNode=2 (newReconciler default) × count=4 → device-plugin
+	// should advertise 8.
+	var devPlugin appsv1.DaemonSet
+	if err := c.Get(ctx, client.ObjectKey{Namespace: "gpu-operator", Name: "amd-device-plugin"}, &devPlugin); err != nil {
+		t.Fatalf("device-plugin DS missing: %v", err)
+	}
+	if got := devPlugin.Spec.Template.Spec.Containers[0].Args; !containsArg(got, "--gpus-per-node=8") {
+		t.Errorf("device-plugin --gpus-per-node: got %v, want --gpus-per-node=8", got)
+	}
+
+	// metrics-exporter keeps --gpus-per-node=2 (physical count) and
+	// adds --partition-mode=cpx + --partition-count=4 so it stamps
+	// partition labels.
+	var exporter appsv1.DaemonSet
+	if err := c.Get(ctx, client.ObjectKey{Namespace: "gpu-operator", Name: "amd-device-metrics-exporter"}, &exporter); err != nil {
+		t.Fatalf("metrics-exporter DS missing: %v", err)
+	}
+	args := exporter.Spec.Template.Spec.Containers[0].Args
+	if !containsArg(args, "--gpus-per-node=2") ||
+		!containsArg(args, "--partition-mode=cpx") ||
+		!containsArg(args, "--partition-count=4") {
+		t.Errorf("metrics-exporter args missing partition info: %v", args)
+	}
+
+	// Flip back to spx — device-plugin reverts to gpusPerNode=2.
+	if err := c.Get(ctx, client.ObjectKey{Name: "default"}, cr); err != nil {
+		t.Fatalf("re-Get CR: %v", err)
+	}
+	cr.Spec.ComputePartition = amdv1alpha1.ComputePartitionSpec{Mode: "spx", Count: 1}
+	if err := c.Update(ctx, cr); err != nil {
+		t.Fatalf("update CR to spx: %v", err)
+	}
+	if _, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKey{Name: "default"}}); err != nil {
+		t.Fatalf("reconcile spx: %v", err)
+	}
+	if err := c.Get(ctx, client.ObjectKey{Namespace: "gpu-operator", Name: "amd-device-plugin"}, &devPlugin); err != nil {
+		t.Fatalf("device-plugin DS missing after spx revert: %v", err)
+	}
+	if got := devPlugin.Spec.Template.Spec.Containers[0].Args; !containsArg(got, "--gpus-per-node=2") {
+		t.Errorf("after spx revert, device-plugin --gpus-per-node: got %v, want --gpus-per-node=2", got)
+	}
+}
+
+func containsArg(args []string, want string) bool {
+	return slices.Contains(args, want)
 }
 
 func ptrBool(b bool) *bool { return &b }
