@@ -13,5 +13,6 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
 
 FROM gcr.io/distroless/static:nonroot
 COPY --from=build /out/fake-dcgm-extras /fake-dcgm-extras
-USER nonroot:nonroot
+# Numeric UID — see fake-rocm-gpu-operator/Dockerfile for the reason.
+USER 65532:65532
 ENTRYPOINT ["/fake-dcgm-extras"]

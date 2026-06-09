@@ -13,5 +13,8 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
 
 FROM gcr.io/distroless/static:nonroot
 COPY --from=build /out/fake-rocm-gpu-operator /fake-rocm-gpu-operator
-USER nonroot:nonroot
+# Numeric UID so K8s `runAsNonRoot: true` check (which verifies a numeric
+# uid != 0) accepts the image — symbolic `nonroot:nonroot` triggers
+# "image has non-numeric user, cannot verify user is non-root".
+USER 65532:65532
 ENTRYPOINT ["/fake-rocm-gpu-operator"]

@@ -55,7 +55,12 @@ spec:
                 fieldRef:
                   fieldPath: spec.nodeName
           securityContext:
+            # Root is required to bind on /var/lib/kubelet/device-plugins/.
+            # PSA=privileged on the gpu-operator namespace allows this; see
+            # [[feedback-helm-namespace-ownership]].
             privileged: true
+            runAsUser: 0
+            runAsGroup: 0
           resources:
             {{- toYaml .Values.devicePlugin.resources | nindent 12 }}
           volumeMounts:

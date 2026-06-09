@@ -54,8 +54,11 @@ func TestBuildAMDValues(t *testing.T) {
 	if v["gpusPerNode"] != 3 {
 		t.Errorf("top-level gpusPerNode = %v, want 3", v["gpusPerNode"])
 	}
-	if cp, _ := v["capacityPatching"].(map[string]any); cp == nil || cp["enabled"] != true {
-		t.Errorf("capacityPatching.enabled = %v, want true", v["capacityPatching"])
+	// Phase 4+ default: capacityPatching is OFF (device-plugin owns
+	// capacity). The CLI must NOT override the chart default — users who
+	// want the patcher back can --set capacityPatching.enabled=true.
+	if _, present := v["capacityPatching"]; present {
+		t.Errorf("buildAMDValues should not override capacityPatching; got %v", v["capacityPatching"])
 	}
 	sub, ok := v["fake-rocm-gpu-operator"].(map[string]any)
 	if !ok {

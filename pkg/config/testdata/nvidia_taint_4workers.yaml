@@ -54,8 +54,8 @@ nodes:
         effect: NoSchedule
 containerdConfigPatches:
   - |-
-    [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:5001"]
-      endpoint = ["http://kind-registry:5001"]
+    [plugins."io.containerd.grpc.v1.cri".registry]
+      config_path = "/etc/containerd/certs.d"
 featureGates:
   DynamicResourceAllocation: true
 runtimeConfig:
