@@ -45,3 +45,36 @@ devicePlugin:
     limits:
       cpu: 100m
       memory: 128Mi
+
+# status-updater: single-replica Deployment that watches pods cluster-
+# wide + maintains the topology ConfigMap mapping GPUs to the pods that
+# hold them. The metrics-exporter reads that CM on every scrape to add
+# pod/namespace/container labels.
+statusUpdater:
+  enabled: true
+  reconcileInterval: 5s
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# node-labeller: DaemonSet that patches each GPU node with the AMD
+# product / CU / SIMD / family / VRAM labels real ROCm/gpu-operator
+# emits. productName is inherited from the top-level value.
+nodeLabeller:
+  enabled: true
+  cuCount: 304
+  simdCount: 1216
+  deviceID: "0x74a1"
+  family: MI300
+  vram: 192GB
+  resources:
+    requests:
+      cpu: 5m
+      memory: 16Mi
+    limits:
+      cpu: 50m
+      memory: 64Mi

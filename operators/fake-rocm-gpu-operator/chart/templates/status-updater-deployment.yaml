@@ -1,0 +1,51 @@
+{{- if .Values.statusUpdater.enabled }}
+{{- /*
+status-updater runs as a single replica: it just polls pods + writes a
+ConfigMap, so leader election is unnecessary at sims's scale. Phase 5
+spec is intentionally simple (5s reconcile loop) and the deployment
+defaults match.
+*/}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: amd-status-updater
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: amd-status-updater
+    app.kubernetes.io/name: fake-rocm-gpu-operator
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/part-of: sims
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: amd-status-updater
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: amd-status-updater
+        app.kubernetes.io/name: fake-rocm-gpu-operator
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      serviceAccountName: amd-status-updater
+      containers:
+        - name: status-updater
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - status-updater
+            - --topology-namespace={{ .Release.Namespace }}
+            - --reconcile-interval={{ .Values.statusUpdater.reconcileInterval }}
+          resources:
+            {{- toYaml .Values.statusUpdater.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+{{- end }}

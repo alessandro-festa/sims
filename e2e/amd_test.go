@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/yaml"
@@ -184,6 +186,51 @@ func TestAMD_Monitoring_EndToEnd(t *testing.T) {
 	if err := waitForPrometheusMetric(ctx, cs, amdMetricSentinel, dcgmSampleTimeout); err != nil {
 		t.Errorf("prometheus never saw %s: %v", amdMetricSentinel, err)
 	}
+
+	// Phase 5: pod annotation drives the gauge value via topology CM
+	// (status-updater → metrics-exporter).
+	t.Log("applying load-test pod with sims.io/simulated-gpu-utilization=70-90")
+	loadPod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "amd-load-test",
+			Namespace: sampleNamespace,
+			Annotations: map[string]string{
+				"sims.io/simulated-gpu-utilization": "70-90",
+			},
+		},
+		Spec: corev1.PodSpec{
+			RestartPolicy: corev1.RestartPolicyNever,
+			Containers: []corev1.Container{{
+				Name:    "payload",
+				Image:   "busybox",
+				Command: []string{"sh", "-c", "sleep 3600"},
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{"amd.com/gpu": resource.MustParse("1")},
+				},
+			}},
+		},
+	}
+	if _, err := cs.CoreV1().Pods(sampleNamespace).Create(ctx, loadPod, metav1.CreateOptions{}); err != nil {
+		t.Fatalf("create load-test pod: %v", err)
+	}
+	t.Cleanup(func() {
+		ctxC, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		_ = cs.CoreV1().Pods(sampleNamespace).Delete(ctxC, loadPod.Name, metav1.DeleteOptions{})
+	})
+
+	if err := waitForRunning(ctx, cs, sampleNamespace, loadPod.Name, amdRunningTimeout); err != nil {
+		t.Fatalf("load-test pod never Running: %v", err)
+	}
+
+	// Allow the full pipeline to converge: annotator → status-updater →
+	// metrics-exporter cache refresh → Prometheus scrape. 2 min ceiling
+	// is generous (typical convergence ≤45s).
+	t.Log("waiting for amd_gpu_gfx_activity{pod=amd-load-test} to land in [70, 90]")
+	q := `amd_gpu_gfx_activity{pod="amd-load-test"}`
+	if err := waitForPrometheusValueInRange(ctx, cs, q, 70, 90, 2*time.Minute); err != nil {
+		t.Errorf("annotation didn't drive gauge value: %v", err)
+	}
 }
 
 // buildOperatorImage runs the operator's `make image` target, which docker
@@ -295,6 +342,50 @@ func waitForWorkerCapacity(ctx context.Context, cs kubernetes.Interface, labelSe
 		select {
 		case <-deadline.Done():
 			return fmt.Errorf("no worker reports %s >= %d within %s: %w", resourceName, want, timeout, deadline.Err())
+		case <-ticker.C:
+		}
+	}
+}
+
+// waitForPrometheusValueInRange polls Prometheus's instant-query endpoint
+// until at least one returned series's most-recent sample falls in
+// [low, high]. Used to verify pod-driven metric values land at the
+// expected utilization range within the convergence budget.
+func waitForPrometheusValueInRange(ctx context.Context, cs kubernetes.Interface, query string, low, high float64, timeout time.Duration) error {
+	deadline, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	ticker := time.NewTicker(3 * time.Second)
+	defer ticker.Stop()
+	for {
+		body, err := serviceProxyGet(deadline, cs, monitoringNamespace, prometheusServiceName, prometheusServicePort, "api/v1/query", map[string]string{"query": query})
+		if err == nil {
+			var resp struct {
+				Status string `json:"status"`
+				Data   struct {
+					Result []struct {
+						Value [2]json.RawMessage `json:"value"` // [timestamp, "value-as-string"]
+					} `json:"result"`
+				} `json:"data"`
+			}
+			if json.Unmarshal(body, &resp) == nil && resp.Status == "success" {
+				for _, r := range resp.Data.Result {
+					var s string
+					if err := json.Unmarshal(r.Value[1], &s); err != nil {
+						continue
+					}
+					v, err := strconv.ParseFloat(s, 64)
+					if err != nil {
+						continue
+					}
+					if v >= low && v <= high {
+						return nil
+					}
+				}
+			}
+		}
+		select {
+		case <-deadline.Done():
+			return fmt.Errorf("query %s value not in [%v,%v] within %s: %w (last body: %s)", query, low, high, timeout, deadline.Err(), truncate(body, 200))
 		case <-ticker.C:
 		}
 	}

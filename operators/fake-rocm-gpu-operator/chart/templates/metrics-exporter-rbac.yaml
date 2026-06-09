@@ -1,0 +1,80 @@
+{{- /*
+RBAC for the metrics-exporter. Phase 5: needs to read the topology CM
+in the chart namespace + read pod annotations cluster-wide so per-scrape
+gauges carry pod/namespace/container labels. Phase 3 ran without an SA
+since it didn't touch the apiserver.
+*/}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: amd-device-metrics-exporter
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: amd-device-metrics-exporter
+    app.kubernetes.io/name: fake-rocm-gpu-operator
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/part-of: sims
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Name }}-amd-device-metrics-exporter
+  labels:
+    app: amd-device-metrics-exporter
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/part-of: sims
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Name }}-amd-device-metrics-exporter
+  labels:
+    app: amd-device-metrics-exporter
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/part-of: sims
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Release.Name }}-amd-device-metrics-exporter
+subjects:
+  - kind: ServiceAccount
+    name: amd-device-metrics-exporter
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: amd-device-metrics-exporter
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: amd-device-metrics-exporter
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/part-of: sims
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["topology"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: amd-device-metrics-exporter
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: amd-device-metrics-exporter
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/part-of: sims
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: amd-device-metrics-exporter
+subjects:
+  - kind: ServiceAccount
+    name: amd-device-metrics-exporter
+    namespace: {{ .Release.Namespace }}
