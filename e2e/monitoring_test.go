@@ -32,7 +32,7 @@ func TestNVIDIA_Monitoring_EndToEnd(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
-	t.Cleanup(func() { cleanupCluster(t) })
+	t.Cleanup(func() { cleanupCluster(t, clusterName) })
 
 	// 1. Create with --monitoring (takes ~2-4 min on first run).
 	t.Log("creating sims-nvidia cluster with --monitoring (this takes 2-4 min)")
@@ -43,7 +43,7 @@ func TestNVIDIA_Monitoring_EndToEnd(t *testing.T) {
 		t.Fatalf("sims gpu create --monitoring failed: %v\nstderr:\n%s", err, stderr)
 	}
 
-	kc, err := newKubeconfig(ctx)
+	kc, err := newKubeconfig(ctx, clusterName)
 	if err != nil {
 		t.Fatalf("fetch kubeconfig: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestNVIDIA_Monitoring_EndToEnd(t *testing.T) {
 	if _, err := cs.CoreV1().ConfigMaps(monitoringNamespace).Get(ctx, "sims-monitoring-nvidia-dcgm-dashboard", metav1.GetOptions{}); err != nil {
 		t.Errorf("dashboard ConfigMap missing: %v", err)
 	}
-	if err := waitForSidecarLog(ctx, cs, dashboardLoadedTimeout); err != nil {
+	if err := waitForSidecarLog(ctx, cs, "nvidia-dcgm.json", dashboardLoadedTimeout); err != nil {
 		t.Errorf("grafana sidecar never logged dashboard load: %v", err)
 	}
 
@@ -93,10 +93,10 @@ func serviceProxyGet(ctx context.Context, cs kubernetes.Interface, namespace, se
 }
 
 // waitForSidecarLog tails the Grafana sidecar container's logs until it
-// reports writing the DCGM dashboard JSON to disk — that's the moment
-// Grafana's filesystem-watching provisioner picks it up. Side-steps
+// reports writing the given dashboard JSON filename to disk — that's the
+// moment Grafana's filesystem-watching provisioner picks it up. Side-steps
 // needing basic auth against Grafana's HTTP API.
-func waitForSidecarLog(ctx context.Context, cs kubernetes.Interface, timeout time.Duration) error {
+func waitForSidecarLog(ctx context.Context, cs kubernetes.Interface, filename string, timeout time.Duration) error {
 	deadline, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	ticker := time.NewTicker(3 * time.Second)
@@ -108,14 +108,14 @@ func waitForSidecarLog(ctx context.Context, cs kubernetes.Interface, timeout tim
 		if err == nil && len(pods.Items) > 0 {
 			for _, p := range pods.Items {
 				logs, err := readContainerLog(deadline, cs, p.Namespace, p.Name, "grafana-sc-dashboard")
-				if err == nil && strings.Contains(logs, "nvidia-dcgm.json") {
+				if err == nil && strings.Contains(logs, filename) {
 					return nil
 				}
 			}
 		}
 		select {
 		case <-deadline.Done():
-			return fmt.Errorf("grafana sidecar never logged nvidia-dcgm.json within %s: %w", timeout, deadline.Err())
+			return fmt.Errorf("grafana sidecar never logged %s within %s: %w", filename, timeout, deadline.Err())
 		case <-ticker.C:
 		}
 	}

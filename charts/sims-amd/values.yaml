@@ -13,12 +13,15 @@ gpuMemoryBytes: 206158430208   # 192 GiB
 capacityPatching:
   enabled: true
 
-# Pass-through to fake-rocm-gpu-operator subchart.
+# Pass-through to fake-rocm-gpu-operator subchart. image.repository points
+# at the local registry pkg/cluster.EnsureRegistry brings up — the sims CLI
+# pushes the operator image there via `sims gpu load-image`. Standalone
+# helm users can override to any reachable registry.
 fake-rocm-gpu-operator:
   gpusPerNode: 2
   productName: MI300X
   gpuMemoryBytes: 206158430208
   image:
-    repository: fake-rocm-gpu-operator
+    repository: localhost:5001/fake-rocm-gpu-operator
     tag: dev
     pullPolicy: IfNotPresent

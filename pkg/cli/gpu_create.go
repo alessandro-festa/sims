@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -19,11 +18,13 @@ import (
 )
 
 const (
-	chartRelease       = "sims-nvidia"
+	chartReleaseNVIDIA = "sims-nvidia"
+	chartReleaseAMD    = "sims-amd"
 	chartNamespace     = "gpu-operator"
 	defaultChartDir    = "charts"
 	chartDirEnvVar     = "SIMS_CHART_DIR"
 	gpuResourceNVIDIA  = "nvidia.com/gpu"
+	gpuResourceAMD     = "amd.com/gpu"
 	capacityWaitWindow = 2 * time.Minute
 
 	monitoringChartName  = "sims-monitoring"
@@ -69,9 +70,8 @@ func runCreate(ctx context.Context, stdout io.Writer, o *createOpts) error {
 	if err := validateVendor(o.vendor); err != nil {
 		return err
 	}
-	if o.vendor == config.VendorAMD {
-		return errors.New("--vendor amd not yet supported (Phase 3+); only nvidia is wired in Phase 1")
-	}
+
+	chartRelease, valuesBuilder, gpuResource := vendorWiring(o.vendor)
 
 	log := newStderrLogger()
 	name := o.name
@@ -128,15 +128,15 @@ func runCreate(ctx context.Context, stdout io.Writer, o *createOpts) error {
 	if err := hc.EnsureDependencies(ctx, chartDir); err != nil {
 		return err
 	}
-	if err := hc.Install(ctx, chartRelease, chartDir, buildNVIDIAValues(o.gpusPerWorker), helm.WithoutCreateNamespace()); err != nil {
+	if err := hc.Install(ctx, chartRelease, chartDir, valuesBuilder(o.gpusPerWorker), helm.WithoutCreateNamespace()); err != nil {
 		return err
 	}
 
 	log.Info("waiting for GPU capacity on workers",
-		"resource", gpuResourceNVIDIA, "per-worker", o.gpusPerWorker, "workers", o.workers)
+		"resource", gpuResource, "per-worker", o.gpusPerWorker, "workers", o.workers)
 	wait, cancel := context.WithTimeout(ctx, capacityWaitWindow)
 	defer cancel()
-	if err := kube.WaitForResourceCapacity(wait, kc, gpuResourceNVIDIA, o.gpusPerWorker, o.workers); err != nil {
+	if err := kube.WaitForResourceCapacity(wait, kc, gpuResource, o.gpusPerWorker, o.workers); err != nil {
 		return err
 	}
 
@@ -152,8 +152,20 @@ func runCreate(ctx context.Context, stdout io.Writer, o *createOpts) error {
 	}
 	_, _ = fmt.Fprintf(stdout,
 		"cluster %q ready — %d workers × %d %s\nkubeconfig context: kind-%s%s\n",
-		name, o.workers, o.gpusPerWorker, gpuResourceNVIDIA, name, monitoringMsg)
+		name, o.workers, o.gpusPerWorker, gpuResource, name, monitoringMsg)
 	return nil
+}
+
+// vendorWiring returns the helm release name, values builder, and resource
+// name for the chosen vendor. The four wiring constants per vendor live at
+// the top of this file.
+func vendorWiring(vendor string) (release string, values func(int) map[string]any, resource string) {
+	switch vendor {
+	case config.VendorAMD:
+		return chartReleaseAMD, buildAMDValues, gpuResourceAMD
+	default: // VendorNVIDIA; validateVendor has already rejected anything else.
+		return chartReleaseNVIDIA, buildNVIDIAValues, gpuResourceNVIDIA
+	}
 }
 
 // installMonitoring brings up sims-monitoring (kube-prometheus-stack + the
@@ -249,6 +261,21 @@ func buildNVIDIAValues(gpusPerWorker int) map[string]any {
 					},
 				},
 			},
+		},
+	}
+}
+
+// buildAMDValues propagates --gpus-per-worker into both sims-amd (which
+// drives the capacity-patcher Job) and the fake-rocm-gpu-operator subchart
+// (which sets --gpus-per-node on the metrics-exporter DaemonSet).
+func buildAMDValues(gpusPerWorker int) map[string]any {
+	return map[string]any{
+		"gpusPerNode": gpusPerWorker,
+		"capacityPatching": map[string]any{
+			"enabled": true,
+		},
+		"fake-rocm-gpu-operator": map[string]any{
+			"gpusPerNode": gpusPerWorker,
 		},
 	}
 }

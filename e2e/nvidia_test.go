@@ -42,7 +42,7 @@ func TestNVIDIA_EndToEnd(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
-	t.Cleanup(func() { cleanupCluster(t) })
+	t.Cleanup(func() { cleanupCluster(t, clusterName) })
 
 	// 1. Create the cluster.
 	t.Log("creating sims-nvidia cluster (this takes ~1-2 minutes)")
@@ -54,7 +54,7 @@ func TestNVIDIA_EndToEnd(t *testing.T) {
 	}
 
 	// 2. Verify capacity is advertised.
-	kc, err := newKubeconfig(ctx)
+	kc, err := newKubeconfig(ctx, clusterName)
 	if err != nil {
 		t.Fatalf("fetch kubeconfig: %v", err)
 	}
