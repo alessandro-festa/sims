@@ -57,6 +57,53 @@ spec:
 
 The exporters re-read annotations on every Prometheus scrape (default 15 s), so changes take effect within one scrape interval.
 
+## Making `rocm-smi` succeed inside AMD workloads
+
+Real `rocm-smi` refuses to run without an `amdgpu` kernel module (sims has none — kind containers share the host kernel). Workloads that shell out to `rocm-smi` for sanity checks fail. sims ships `rocm-smi-mock` (Phase 7 #49) as a second binary in the `fake-rocm-gpu-operator` image; mount it into your workload via an initContainer and a shared emptyDir:
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: rocm-aware-workload
+spec:
+  initContainers:
+    - name: install-rocm-smi-mock
+      image: localhost:5001/fake-rocm-gpu-operator:dev
+      command: ["sh", "-c", "cp /rocm-smi-mock /shared/rocm-smi && chmod +x /shared/rocm-smi"]
+      volumeMounts:
+        - { name: rocm-bin, mountPath: /shared }
+  containers:
+    - name: payload
+      image: rocm/dev-ubuntu-22.04:6.0
+      # Prepend /opt/rocm-mock/bin so the mock shadows any real rocm-smi
+      # the image ships with.
+      env:
+        - { name: PATH, value: "/opt/rocm-mock/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" }
+      command: ["sh", "-c", "rocm-smi --json | head -20 && sleep 3600"]
+      volumeMounts:
+        - { name: rocm-bin, mountPath: /opt/rocm-mock/bin }
+      resources:
+        limits: { amd.com/gpu: 1 }
+  volumes:
+    - { name: rocm-bin, emptyDir: {} }
+```
+
+Configure the mock's output via env vars (read at startup):
+
+| Env var | Default | Purpose |
+|---|---|---|
+| `ROCM_SMI_MOCK_GPUS_PER_NODE` | 2 | Number of physical GPUs to report |
+| `ROCM_SMI_MOCK_PRODUCT_NAME` | MI300X | Card model in the output |
+| `ROCM_SMI_MOCK_MEMORY_BYTES` | 206158430208 | Per-GPU VRAM in bytes |
+| `ROCM_SMI_MOCK_PARTITION_MODE` | spx | `spx` or `cpx` (#48) |
+| `ROCM_SMI_MOCK_PARTITION_COUNT` | 1 | Partitions per physical under `cpx` |
+
+`rocm-smi-mock` mirrors real `rocm-smi`'s two output formats:
+
+- Default (no args): the concise tabular layout (`GPU`, `Temp(C)`, `AvgPwr`, `SCLK`, `MCLK`, `Fan`, `Perf`, `PwrCap`, `VRAM%`, `GPU%` columns).
+- `--json`: the dict format keyed by `cardN` plus a `system` entry; key names match real `rocm-smi` so existing parsers work.
+
 ## Adding a new AMD metric
 
 1. Add the gauge to `operators/fake-rocm-gpu-operator/pkg/metrics/registry.go` (mirror an existing entry — name with `amd_gpu_` / `amd_pcie_` prefix, register in `New()`, write in `Observe()`).
