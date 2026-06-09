@@ -7,11 +7,13 @@ gpusPerNode: 2
 productName: MI300X
 gpuMemoryBytes: 206158430208   # 192 GiB
 
-# Patch amd.com/gpu capacity onto worker nodes via a post-install Job. Phase
-# 4 replaces this with fake-rocm-gpu-operator's device-plugin subcommand;
-# flip to false once that lands.
+# Patch amd.com/gpu capacity onto worker nodes via a post-install Job. The
+# device-plugin (Phase 4, default enabled in the operator subchart) is the
+# primary capacity source now; the patcher stays as a fallback for clusters
+# where the device-plugin can't run (no /var/lib/kubelet/* hostPath access).
+# Flip to true to re-enable the Phase-3 behavior.
 capacityPatching:
-  enabled: true
+  enabled: false
 
 # Pass-through to fake-rocm-gpu-operator subchart. image.repository points
 # at the local registry pkg/cluster.EnsureRegistry brings up — the sims CLI

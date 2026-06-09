@@ -30,3 +30,18 @@ resources:
   limits:
     cpu: 100m
     memory: 128Mi
+
+# Device-plugin: kubelet-facing gRPC server that advertises amd.com/gpu
+# capacity and lets pods actually be admitted (vs the Phase 3 capacity-
+# patcher Job which only set node-status fields, leaving the kubelet
+# without an allocator). Phase 4 default = enabled.
+devicePlugin:
+  enabled: true
+  resourceName: amd.com/gpu
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi

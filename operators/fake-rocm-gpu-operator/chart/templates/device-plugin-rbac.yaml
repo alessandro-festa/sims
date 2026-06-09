@@ -1,0 +1,49 @@
+{{- if .Values.devicePlugin.enabled }}
+{{- /*
+RBAC for the device-plugin. Needs pods:get/list/watch/patch cluster-wide
+to write the sims.io/assigned-gpus annotation onto whichever pod the
+kubelet's PodResources API reports as the holder of each amd.com/gpu
+allocation. See pkg/deviceplugin/annotate.go.
+*/}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: amd-device-plugin
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: amd-device-plugin
+    app.kubernetes.io/name: fake-rocm-gpu-operator
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/part-of: sims
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Name }}-amd-device-plugin
+  labels:
+    app: amd-device-plugin
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/part-of: sims
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Name }}-amd-device-plugin
+  labels:
+    app: amd-device-plugin
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/part-of: sims
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Release.Name }}-amd-device-plugin
+subjects:
+  - kind: ServiceAccount
+    name: amd-device-plugin
+    namespace: {{ .Release.Namespace }}
+{{- end }}
