@@ -1,0 +1,32 @@
+# Default values for fake-rocm-gpu-operator. The sims CLI overrides
+# gpusPerNode/productName/gpuMemoryBytes from --gpus-per-worker.
+
+image:
+  repository: fake-rocm-gpu-operator
+  tag: dev
+  pullPolicy: IfNotPresent
+
+# Per-node fake GPU configuration.
+gpusPerNode: 2
+productName: MI300X
+gpuMemoryBytes: 206158430208   # 192 GiB
+
+# DaemonSet placement. sims kind workers carry sims.io/gpu-vendor=amd; bare
+# helm installs against real clusters can override this to label their nodes.
+nodeSelector:
+  sims.io/gpu-vendor: amd
+
+tolerations: []
+
+# Metrics endpoint port. Service name is fixed at amd-device-metrics-exporter
+# so the sims-monitoring ServiceMonitor target stays stable.
+service:
+  port: 5000
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi

@@ -18,22 +18,22 @@ Labels: `gpu`, `UUID`, `device`, `modelName`, `Hostname`, `container`, `namespac
 
 ### AMD — handled by `fake-rocm-gpu-operator` (from Phase 3 onward)
 
-The exporter emits AMD-namespaced gauges per `(gpu_id, pod, namespace, container)`:
+Metric names mirror the real [ROCm/device-metrics-exporter](https://github.com/ROCm/device-metrics-exporter) so dashboards built for that exporter (e.g. Grafana ID **23434** — _AMD Instinct Single Node Dashboard_) light up against sims out of the box.
 
 | Metric | Idle baseline | Loaded value |
 |--------|---------------|--------------|
-| `gpu_temperature` (°C) | 35 | `40 + util × 0.55 + jitter` |
-| `gpu_power_usage` (W) | 30 | `50 + util × 2.5` |
-| `gpu_gfx_busy_instantaneous` (%) | 0 | sampled in pod's `sims.io/simulated-gpu-utilization` range |
-| `gpu_gfx_activity` (%) | 0 | cumulative variant of busy |
-| `gpu_memory_used` (bytes) | 0 | `(util / 100) × gpu_memory_total × 0.8` |
-| `gpu_memory_total` (bytes) | configured | configured |
-| `gpu_voltage` (mV) | 800 | `800 + util × 4` |
-| `gpu_clock` (MHz) | 500 | `500 + util × 12` |
-| `gpu_fan_speed` (%) | 20 | `20 + util × 0.6` |
-| `gpu_pcie_bandwidth` (MB/s) | 100 | `100 + util × 80` |
+| `amd_gpu_junction_temperature` (°C) | 35 | `40 + util × 0.55 + jitter` |
+| `amd_gpu_package_power` (W) | 30 | `50 + util × 2.5` |
+| `amd_gpu_gfx_activity` (%) | 0 | `util` |
+| `amd_gpu_used_vram` (bytes) | 0 | `(util / 100) × total_vram × 0.8` |
+| `amd_gpu_total_vram` (bytes) | configured | configured |
+| `amd_gpu_health` (0/1) | 1 | 1 |
+| `amd_gpu_clock_gfx` (MHz) | 500 | `500 + util × 12` |
+| `amd_gpu_voltage` (mV) | 800 | `800 + util × 4` |
+| `amd_gpu_fan_speed` (%) | 20 | `20 + util × 0.6` |
+| `amd_pcie_bandwidth` (MB/s) | 100 | `100 + util × 80` |
 
-Idle GPUs (no pod assigned) report baseline values. Assigned GPUs read the pod annotation `sims.io/simulated-gpu-utilization` (range `"low-high"`, default `"5-15"`) and derive the rest from the sampled utilization.
+Phase 3 labels: `gpu_id`, `serial_number`, `card_series`, `card_model`, `hostname`. Every GPU on every node reports the idle baseline; load-driven values land in Phase 5 alongside the `status-updater` that maps pods → GPUs (`pod`, `namespace`, `container` labels added then).
 
 ## Annotating pods to control utilization
 
@@ -59,10 +59,10 @@ The exporters re-read annotations on every Prometheus scrape (default 15 s), so 
 
 ## Adding a new AMD metric
 
-1. Add the gauge definition to `operators/fake-rocm-gpu-operator/pkg/metrics/`.
-2. Add the value generator (idle baseline + loaded formula) to `operators/fake-rocm-gpu-operator/pkg/simulate/`.
+1. Add the gauge to `operators/fake-rocm-gpu-operator/pkg/metrics/registry.go` (mirror an existing entry — name with `amd_gpu_` / `amd_pcie_` prefix, register in `New()`, write in `Observe()`).
+2. Add the value to `operators/fake-rocm-gpu-operator/pkg/simulate/gpu.go` (extend `Sample`, set in `SampleIdle` and `SampleLoaded`).
 3. Update the AMD Grafana dashboard JSON at `charts/sims-monitoring/dashboards/amd-gpu.json` to include a panel querying the new series.
-4. Add a unit test in `pkg/simulate` with a seeded RNG asserting deterministic output for a known annotation.
+4. Add a unit test in `pkg/simulate` with a seeded RNG asserting deterministic output for a known util value.
 
 ## Adding panels to the NVIDIA dashboard
 

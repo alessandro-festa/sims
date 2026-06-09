@@ -1,0 +1,10 @@
+fake-rocm-gpu-operator {{ .Chart.AppVersion }} installed.
+
+Phase 3 ships only the metrics-exporter DaemonSet and Service. Verify with:
+
+  kubectl --namespace {{ .Release.Namespace }} get ds amd-device-metrics-exporter
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/amd-device-metrics-exporter {{ .Values.service.port }}:{{ .Values.service.port }}
+  curl http://localhost:{{ .Values.service.port }}/metrics | grep ^amd_gpu_
+
+device-plugin, status-updater, node-labeller, and controller land in Phases
+4-6. See https://github.com/alessandro-festa/sims for the live phase table.
