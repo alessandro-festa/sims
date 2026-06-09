@@ -17,19 +17,19 @@ sims gpu create --vendor amd    --monitoring
 
 ## Status
 
-Pre-alpha. Phased delivery:
-
 | Phase | Scope | Status |
 |------:|:------|:------:|
 | 1 | NVIDIA cluster end-to-end (no monitoring) | ✅ done |
 | 2 | Monitoring chart + `sims gpu dashboard` UX | ✅ done |
-| 3 | AMD metrics exporter standalone | planned |
-| 4 | AMD device plugin (kubelet gRPC) | planned |
-| 5 | AMD topology + node labeller + pod-driven metrics | planned |
-| 6 | `DeviceConfig` CRD reconciler (optional) | planned |
-| 7 | Parity polish (compute partitions, `rocm-smi` shim) | planned |
+| 3 | AMD metrics exporter standalone | ✅ done |
+| 4 | AMD device plugin (kubelet gRPC) | ✅ done |
+| 5 | AMD topology + node labeller + pod-driven metrics | ✅ done |
+| 6 | `DeviceConfig` CRD reconciler (optional) | optional / skipped |
+| 7 | Parity polish — NVIDIA DCGM extras sidecar | ✅ done (main thrust); `rocm-smi` shim + CPX/SPX deferred |
 
-**What works today (Phases 1 + 2):** `sims gpu create --vendor nvidia [--monitoring]`, `sims gpu sample`, `sims gpu status`, `sims gpu load-image`, `sims gpu dashboard [--open|--stop]`, `sims gpu monitoring enable|disable`, `sims gpu delete`, `sims gpu doctor`. The AMD path returns a "Phase 3+" error until the operator lands.
+**End-to-end validated** on 2026-06-09 against real vendor containers (`rocm/dev-ubuntu-22.04:6.0` for AMD, `nvidia/cuda:12.4.0-base-ubuntu22.04` for NVIDIA). Pods schedule + reach Running; ROCm / CUDA tools fail authentically inside (no real GPU); Grafana panels show per-pod metrics driven by `sims.io/simulated-gpu-utilization` annotations. See [docs/quickstart.md](docs/quickstart.md#real-vendor-container-demo) for the demo flow.
+
+**Commands:** `sims gpu create --vendor {nvidia|amd} [--monitoring]`, `sims gpu sample --vendor {nvidia|amd}`, `sims gpu status`, `sims gpu load-image`, `sims gpu dashboard [--name N] [--stop]`, `sims gpu monitoring enable|disable`, `sims gpu delete`, `sims gpu doctor`.
 
 See [docs/architecture.md](docs/architecture.md) for the full design.
 
@@ -37,24 +37,35 @@ See [docs/architecture.md](docs/architecture.md) for the full design.
 
 Requires Docker (or Podman with the Docker-compat socket), [`kind`](https://kind.sigs.k8s.io/docs/user/quick-start/#installation), [`helm`](https://helm.sh/docs/intro/install/), and [`kubectl`](https://kubernetes.io/docs/tasks/tools/).
 
+**NVIDIA:**
+
 ```bash
-# Build the CLI
 go build -o bin/sims ./cmd/sims
-
-# Create an NVIDIA-flavored cluster with monitoring
-./bin/sims gpu create --vendor nvidia --monitoring
-
-# Schedule a sample GPU pod
+./bin/sims gpu create --vendor nvidia --workers 2 --gpus-per-worker 2 --monitoring
+# Phase 7 DCGM extras sidecar needs its image loaded into kind:
+make -C operators/fake-dcgm-extras image
+./bin/sims gpu load-image fake-dcgm-extras:dev
+# Sample workload + Grafana:
 ./bin/sims gpu sample --vendor nvidia | kubectl apply -f -
-
-# Open Grafana (port-forwards on :3000)
-./bin/sims gpu dashboard --open
-
-# Tear it all down
+./bin/sims gpu dashboard                # http://localhost:3000 (admin / prom-operator)
 ./bin/sims gpu delete
 ```
 
-See [docs/quickstart.md](docs/quickstart.md) for the longer walkthrough.
+**AMD:**
+
+```bash
+./bin/sims gpu create --vendor amd --workers 2 --gpus-per-worker 2 --monitoring
+# AMD path needs the operator + DCGM-extras images loaded:
+make -C operators/fake-rocm-gpu-operator image
+make -C operators/fake-dcgm-extras image
+./bin/sims gpu load-image fake-rocm-gpu-operator:dev
+./bin/sims gpu load-image fake-dcgm-extras:dev
+./bin/sims gpu sample --vendor amd | kubectl apply -f -
+./bin/sims gpu dashboard                # http://localhost:3000 (admin / prom-operator)
+./bin/sims gpu delete
+```
+
+See [docs/quickstart.md](docs/quickstart.md) for the longer walkthrough including the real-vendor-container demo.
 
 ## Documentation
 
