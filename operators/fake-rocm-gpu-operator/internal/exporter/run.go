@@ -39,11 +39,13 @@ func Run(ctx context.Context, args []string, stderr io.Writer) error {
 	fs := flag.NewFlagSet("metrics-exporter", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	listen := fs.String("listen", ":5000", "Address the metrics HTTP server binds to.")
-	gpus := fs.Int("gpus-per-node", 2, "Number of fake GPUs to expose for this node.")
+	gpus := fs.Int("gpus-per-node", 2, "Number of PHYSICAL fake GPUs on this node. CPX partitioning (--partition-mode=cpx --partition-count=N) multiplies the advertised device count.")
 	product := fs.String("product-name", "MI300X", "Card series/model reported in metric labels.")
-	memBytes := fs.Int64("memory-bytes", 206158430208, "Per-GPU total VRAM in bytes (default 192 GiB).")
+	memBytes := fs.Int64("memory-bytes", 206158430208, "Per-physical-GPU total VRAM in bytes (default 192 GiB); split evenly across partitions under CPX.")
 	namespace := fs.String("topology-namespace", "gpu-operator", "Namespace holding the topology ConfigMap written by status-updater.")
 	refresh := fs.Duration("refresh-interval", 5*time.Second, "How often to re-read topology + pod annotations.")
+	partitionMode := fs.String("partition-mode", simulate.PartitionSPX, "CPX/SPX emulation mode: spx (1 logical per physical, default) or cpx (--partition-count logical per physical).")
+	partitionCount := fs.Int("partition-count", 1, "Number of CPX partitions per physical GPU when --partition-mode=cpx.")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
@@ -65,7 +67,7 @@ func Run(ctx context.Context, args []string, stderr io.Writer) error {
 		hostname = hn
 	}
 
-	gpuList := simulate.BuildGPUs(hostname, *product, *memBytes, *gpus)
+	gpuList := simulate.BuildGPUs(hostname, *product, *memBytes, *gpus, *partitionMode, *partitionCount)
 
 	sampler := buildSampler(ctx, log, gpuList, hostname, *namespace, *refresh)
 	collector := metrics.New(sampler)
@@ -85,7 +87,7 @@ func Run(ctx context.Context, args []string, stderr io.Writer) error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		_, _ = fmt.Fprintf(stderr, "metrics-exporter: listening on %s, hostname=%s, gpus=%d, product=%s\n", *listen, hostname, *gpus, *product)
+		_, _ = fmt.Fprintf(stderr, "metrics-exporter: listening on %s, hostname=%s, gpus=%d, product=%s, partition=%s/%d (advertising %d logical)\n", *listen, hostname, *gpus, *product, *partitionMode, *partitionCount, len(gpuList))
 		errCh <- srv.ListenAndServe()
 	}()
 
@@ -163,6 +165,8 @@ func snapshotFromIdle(g simulate.GPU, hostname string) metrics.Snapshot {
 		CardSeries:    g.CardSeries,
 		CardModel:     g.CardModel,
 		Hostname:      hostname,
+		PartitionMode: g.PartitionMode,
+		PartitionID:   g.PartitionID,
 		JunctionTemp:  s.JunctionTemp,
 		PackagePower:  s.PackagePower,
 		GfxActivity:   s.GfxActivity,
@@ -186,6 +190,8 @@ func snapshotFromLoaded(g simulate.GPU, hostname, ns, pod, container string, s s
 		Pod:           pod,
 		Namespace:     ns,
 		Container:     container,
+		PartitionMode: g.PartitionMode,
+		PartitionID:   g.PartitionID,
 		JunctionTemp:  s.JunctionTemp,
 		PackagePower:  s.PackagePower,
 		GfxActivity:   s.GfxActivity,

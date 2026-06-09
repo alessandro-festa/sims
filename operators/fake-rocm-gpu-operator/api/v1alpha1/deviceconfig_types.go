@@ -39,6 +39,15 @@ type DeviceConfigSpec struct {
 	// only as documentation today.
 	// +optional
 	CommonConfig CommonConfigSpec `json:"commonConfig,omitempty"`
+
+	// ComputePartition controls AMD CPX/SPX partition emulation: SPX
+	// presents each physical GPU as 1 device (the default), CPX presents
+	// each physical GPU as Count smaller partitions. Mirrors the
+	// partitioning surface on real MI300X-class hardware. Switching
+	// modes is a live operation — the reconciler updates the device-
+	// plugin DS, capacity changes within ~30s.
+	// +optional
+	ComputePartition ComputePartitionSpec `json:"computePartition,omitempty"`
 }
 
 // DriverSpec — see DeviceConfigSpec.Driver.
@@ -65,6 +74,26 @@ type MetricsExporterSpec struct {
 type CommonConfigSpec struct {
 	// +optional
 	InitContainerImage string `json:"initContainerImage,omitempty"`
+}
+
+// ComputePartitionSpec — see DeviceConfigSpec.ComputePartition.
+type ComputePartitionSpec struct {
+	// Mode selects the partition style: "spx" (single partition per
+	// physical GPU, the default) or "cpx" (Count partitions per physical
+	// GPU). Anything else is rejected by the CRD enum.
+	// +kubebuilder:validation:Enum=spx;cpx
+	// +kubebuilder:default=spx
+	// +optional
+	Mode string `json:"mode,omitempty"`
+
+	// Count is the number of compute partitions per physical GPU when
+	// Mode=cpx. Ignored (treated as 1) when Mode=spx. Real MI300X
+	// supports up to 8.
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=8
+	// +kubebuilder:default=1
+	// +optional
+	Count int32 `json:"count,omitempty"`
 }
 
 // DeviceConfigStatus reports what the reconciler last observed about

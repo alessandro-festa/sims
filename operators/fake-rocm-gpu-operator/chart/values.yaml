@@ -43,6 +43,15 @@ devicePlugin:
   enabled: true
   resourceName: amd.com/gpu
 
+# CPX/SPX compute-partition emulation (#48). SPX (default) presents each
+# physical GPU as 1 device. CPX presents each physical GPU as `count`
+# logical partitions — useful for tooling that exercises AMD's MI300X
+# partition workflow against sims. The default DeviceConfig CR forwards
+# these values; edit the CR directly to switch modes at runtime.
+computePartition:
+  mode: spx     # spx | cpx
+  count: 1      # 1..8; ignored when mode=spx
+
 # Controller (DeviceConfig reconciler) — the new Phase 6 workload.
 controller:
   resources:

@@ -67,6 +67,36 @@ spec:
                   initContainerImage:
                     type: string
                 type: object
+              computePartition:
+                description: |-
+                  ComputePartition controls AMD CPX/SPX partition emulation: SPX
+                  presents each physical GPU as 1 device (the default), CPX presents
+                  each physical GPU as Count smaller partitions. Mirrors the
+                  partitioning surface on real MI300X-class hardware. Switching
+                  modes is a live operation — the reconciler updates the device-
+                  plugin DS, capacity changes within ~30s.
+                properties:
+                  count:
+                    default: 1
+                    description: |-
+                      Count is the number of compute partitions per physical GPU when
+                      Mode=cpx. Ignored (treated as 1) when Mode=spx. Real MI300X
+                      supports up to 8.
+                    format: int32
+                    maximum: 8
+                    minimum: 1
+                    type: integer
+                  mode:
+                    default: spx
+                    description: |-
+                      Mode selects the partition style: "spx" (single partition per
+                      physical GPU, the default) or "cpx" (Count partitions per physical
+                      GPU). Anything else is rejected by the CRD enum.
+                    enum:
+                    - spx
+                    - cpx
+                    type: string
+                type: object
               devicePlugin:
                 description: |-
                   DevicePlugin controls the kubelet device-plugin DaemonSet

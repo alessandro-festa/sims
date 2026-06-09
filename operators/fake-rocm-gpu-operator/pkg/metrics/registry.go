@@ -16,11 +16,14 @@ import (
 )
 
 // labelNames is the full per-series label set every gauge carries.
-// Phase 5 adds pod/namespace/container; idle GPUs report with those
-// three empty.
+// Phase 5 added pod/namespace/container; Phase 7 #48 added
+// partition_mode/partition_id for CPX/SPX emulation. Empty values
+// stand in for "not applicable" (e.g., idle GPU has empty pod, SPX
+// GPU has partition_id="0").
 var labelNames = []string{
 	"gpu_id", "serial_number", "card_series", "card_model", "hostname",
 	"pod", "namespace", "container",
+	"partition_mode", "partition_id",
 }
 
 // Snapshot is one row of data the exporter emits per GPU on every
@@ -39,6 +42,12 @@ type Snapshot struct {
 	Pod       string
 	Namespace string
 	Container string
+
+	// CPX/SPX partition labels (#48). PartitionMode is "spx" or "cpx";
+	// PartitionID is the partition index within the physical card
+	// (always "0" under SPX).
+	PartitionMode string
+	PartitionID   string
 
 	// Values (mirror simulate.Sample)
 	JunctionTemp  float64
@@ -125,6 +134,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		labels := []string{
 			s.GPUID, s.SerialNumber, s.CardSeries, s.CardModel, s.Hostname,
 			s.Pod, s.Namespace, s.Container,
+			s.PartitionMode, s.PartitionID,
 		}
 		ch <- prometheus.MustNewConstMetric(c.junctionTemp, prometheus.GaugeValue, s.JunctionTemp, labels...)
 		ch <- prometheus.MustNewConstMetric(c.packagePower, prometheus.GaugeValue, s.PackagePower, labels...)

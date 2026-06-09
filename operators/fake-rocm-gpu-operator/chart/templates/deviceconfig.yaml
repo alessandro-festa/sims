@@ -23,4 +23,7 @@ spec:
     enable: true
   nodeSelector:
     {{- toYaml .Values.nodeSelector | nindent 4 }}
+  computePartition:
+    mode: {{ .Values.computePartition.mode | quote }}
+    count: {{ .Values.computePartition.count }}
 {{- end }}
