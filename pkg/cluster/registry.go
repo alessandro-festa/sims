@@ -166,5 +166,9 @@ func noSuchContainer(s string) bool {
 
 func alreadyConnected(s string) bool {
 	s = strings.ToLower(s)
-	return strings.Contains(s, "already exists") || strings.Contains(s, "already attached")
+	// Docker's error wording varies by version/scenario; cover all the
+	// strings we've seen for "this container is already on this network".
+	return strings.Contains(s, "already exists") ||
+		strings.Contains(s, "already attached") ||
+		strings.Contains(s, "already connected")
 }
