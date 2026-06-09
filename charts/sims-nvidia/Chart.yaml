@@ -22,3 +22,7 @@ dependencies:
   - name: fake-gpu-operator
     version: 0.0.81
     repository: oci://ghcr.io/run-ai/fake-gpu-operator
+  - name: fake-dcgm-extras
+    version: 0.1.0
+    repository: file://../../operators/fake-dcgm-extras/chart
+    condition: extraMetrics.enabled

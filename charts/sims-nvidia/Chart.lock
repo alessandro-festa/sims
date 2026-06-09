@@ -2,5 +2,8 @@ dependencies:
 - name: fake-gpu-operator
   repository: oci://ghcr.io/run-ai/fake-gpu-operator
   version: 0.0.81
-digest: sha256:fc68253a1c320b67bc5648c739ea6af1a5c4b4778a5bb5672be8d35d82f16cb2
-generated: "2026-06-05T18:46:14.791201+02:00"
+- name: fake-dcgm-extras
+  repository: file://../../operators/fake-dcgm-extras/chart
+  version: 0.1.0
+digest: sha256:a3596c84f00c2d5c621cd0cd909e33ecd08a2bce107604a0a3adf75fdc1edd8a
+generated: "2026-06-09T12:18:59.538822+02:00"

@@ -1,0 +1,18 @@
+{{- if .Values.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: dcgm-extras-exporter
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "fake-dcgm-extras.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "fake-dcgm-extras.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: dcgm-metrics
+      port: {{ .Values.service.port }}
+      targetPort: dcgm-metrics
+      protocol: TCP
+{{- end }}

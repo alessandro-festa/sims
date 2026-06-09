@@ -25,7 +25,7 @@ Bump the JSON's top-level `version` field after refresh so Grafana's sidecar rel
 - **Source:** [NVIDIA DCGM Exporter Dashboard, Grafana ID 12239](https://grafana.com/grafana/dashboards/12239/)
 - **Vendored revision:** 2 (uid `Oxed_c6Wz`, schemaVersion 22) — fetched 2026-06-08 via `curl https://grafana.com/api/dashboards/12239/revisions/2/download`.
 - **Wired in:** Phase 2 — `charts/sims-monitoring/templates/dashboard-nvidia.yaml` renders a `grafana_dashboard: "1"` ConfigMap when `vendor=nvidia`.
-- **Coverage caveat:** `run-ai/fake-gpu-operator` only emits 3 of the ~20 DCGM metrics this dashboard expects (`DCGM_FI_DEV_GPU_UTIL`, `DCGM_FI_DEV_FB_USED`, `DCGM_FI_DEV_FB_FREE`). Util and memory panels populate; temperature, power, clocks, ECC stay empty until Phase 7's sidecar fills the gap.
+- **Coverage:** `run-ai/fake-gpu-operator` emits 3 DCGM metrics (`DCGM_FI_DEV_GPU_UTIL`, `DCGM_FI_DEV_FB_USED`, `DCGM_FI_DEV_FB_FREE`); the vendored dashboard's other panels (temperature, power, SM clock) are filled by **fake-dcgm-extras** (operators/fake-dcgm-extras/), shipped as a sidecar DaemonSet alongside fake-gpu-operator via sims-nvidia's `extraMetrics.enabled` (default true). All 5 metric families the dashboard queries now populate.
 
 ### AMD — `amd-gpu.json`
 

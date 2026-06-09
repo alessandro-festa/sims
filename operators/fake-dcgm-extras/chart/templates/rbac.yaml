@@ -1,0 +1,40 @@
+{{- if .Values.enabled }}
+{{- /*
+RBAC for the DCGM extras sidecar. Needs pods:get,list cluster-wide so
+each node's pod can match its own node's GPU-requesting pods + read
+the run.ai/simulated-gpu-utilization annotation.
+*/}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dcgm-extras-exporter
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "fake-dcgm-extras.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Name }}-dcgm-extras-exporter
+  labels:
+    {{- include "fake-dcgm-extras.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Name }}-dcgm-extras-exporter
+  labels:
+    {{- include "fake-dcgm-extras.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Release.Name }}-dcgm-extras-exporter
+subjects:
+  - kind: ServiceAccount
+    name: dcgm-extras-exporter
+    namespace: {{ .Release.Namespace }}
+{{- end }}

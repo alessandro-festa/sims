@@ -1,0 +1,22 @@
+apiVersion: v2
+name: fake-dcgm-extras
+description: |
+  DaemonSet that backfills the DCGM_FI_DEV_* gauges run-ai/fake-gpu-
+  operator doesn't emit (temperature, power, clocks, PCIe, ECC, fan),
+  so the upstream NVIDIA Grafana dashboard (ID 12239) and other DCGM-
+  built dashboards populate fully against sims.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+kubeVersion: ">=1.28.0-0"
+keywords:
+  - gpu
+  - nvidia
+  - dcgm
+  - simulator
+home: https://github.com/alessandro-festa/sims
+sources:
+  - https://github.com/alessandro-festa/sims
+maintainers:
+  - name: alessandro-festa
+    url: https://github.com/alessandro-festa

@@ -1,0 +1,33 @@
+{{- if eq .Values.vendor "nvidia" }}
+{{- /*
+ServiceMonitor for fake-dcgm-extras (the Phase 7 sidecar that backfills
+DCGM_FI_DEV_GPU_TEMP/POWER_USAGE/SM_CLOCK and friends). Separate from
+servicemonitor-nvidia.yaml because the upstream fake-gpu-operator's
+exporter uses a different `app` label; one SM each keeps both targets
+scrapeable independently.
+
+Targets the Service the fake-dcgm-extras chart ships:
+  port:     dcgm-metrics (:9401)
+  selector: app=dcgm-extras-exporter
+*/}}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .Release.Name }}-nvidia-dcgm-extras
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/part-of: sims
+spec:
+  selector:
+    matchLabels:
+      app: dcgm-extras-exporter
+  namespaceSelector:
+    matchNames:
+      - gpu-operator
+  endpoints:
+    - port: dcgm-metrics
+      interval: 15s
+      scrapeTimeout: 10s
+{{- end }}

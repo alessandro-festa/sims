@@ -1,0 +1,32 @@
+# Default values for fake-dcgm-extras. The sims CLI overrides
+# gpusPerNode + productName from --gpus-per-worker via the sims-nvidia
+# umbrella values.
+
+enabled: true
+
+image:
+  repository: localhost:5001/fake-dcgm-extras
+  tag: dev
+  pullPolicy: IfNotPresent
+
+# Per-node fake GPU slot count + product label.
+gpusPerNode: 2
+productName: "Tesla T4"
+
+# DaemonSet placement. Matches fake-gpu-operator's dcgm-exporter
+# nodeSelector convention (run-ai sets this label via its values).
+nodeSelector:
+  nvidia.com/gpu.deploy.dcgm-exporter: "true"
+
+tolerations: []
+
+service:
+  port: 9401
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+  limits:
+    cpu: 100m
+    memory: 64Mi
