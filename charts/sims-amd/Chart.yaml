@@ -20,7 +20,6 @@ maintainers:
   - name: alessandro-festa
     url: https://github.com/alessandro-festa
 dependencies:
-  # Wired up in Phase 3.
-  # - name: fake-rocm-gpu-operator
-  #   version: 0.1.0
-  #   repository: file://../../operators/fake-rocm-gpu-operator/chart
+  - name: fake-rocm-gpu-operator
+    version: 0.1.0
+    repository: file://../../operators/fake-rocm-gpu-operator/chart

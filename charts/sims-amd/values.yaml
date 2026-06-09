@@ -1,12 +1,24 @@
 # Default values for sims-amd.
+# Surface values live at the top level; pass-through to the fake-rocm-gpu-
+# operator subchart sits under that key. The sims CLI sets both based on
+# --gpus-per-worker.
 
 gpusPerNode: 2
 productName: MI300X
-gpuMemoryBytes: 206158430208  # 192 GiB
+gpuMemoryBytes: 206158430208   # 192 GiB
 
-# Pass-through to fake-rocm-gpu-operator subchart (Phase 3+).
+# Patch amd.com/gpu capacity onto worker nodes via a post-install Job. Phase
+# 4 replaces this with fake-rocm-gpu-operator's device-plugin subcommand;
+# flip to false once that lands.
+capacityPatching:
+  enabled: true
+
+# Pass-through to fake-rocm-gpu-operator subchart.
 fake-rocm-gpu-operator:
   gpusPerNode: 2
   productName: MI300X
-  simulatedDefaults:
-    utilization: "5-15"
+  gpuMemoryBytes: 206158430208
+  image:
+    repository: fake-rocm-gpu-operator
+    tag: dev
+    pullPolicy: IfNotPresent

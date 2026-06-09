@@ -1,0 +1,23 @@
+{{- if eq .Values.vendor "amd" }}
+{{- /*
+AMD Instinct Single Node Dashboard (Grafana ID 23434), embedded from the
+vendored JSON. Grafana's sidecar (configured in values.yaml via
+kube-prometheus-stack.grafana.sidecar.dashboards) auto-loads any
+ConfigMap in this namespace labeled grafana_dashboard=1. Every panel the
+dashboard queries is emitted by fake-rocm-gpu-operator's metrics-exporter
+from Phase 3, so coverage is complete at idle baseline. See
+dashboards/README.md for the metric list.
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-amd-gpu-dashboard
+  namespace: {{ .Release.Namespace }}
+  labels:
+    grafana_dashboard: "1"
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/part-of: sims
+data:
+  amd-gpu.json: |-
+{{ .Files.Get "dashboards/amd-gpu.json" | indent 4 }}
+{{- end }}

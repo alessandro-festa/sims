@@ -1,0 +1,68 @@
+{{- if .Values.capacityPatching.enabled }}
+{{- /*
+Fakes amd.com/gpu capacity by patching each worker's status subresource.
+This stands in for a real device-plugin until Phase 4 lands fake-rocm-gpu-
+operator's device-plugin subcommand; set capacityPatching.enabled=false
+then to disable it.
+
+Selects nodes by the sims.io/gpu-vendor=amd label that pkg/config/kind_
+config.go writes into the kind cluster manifest. JSON Patch op:add on an
+object key is idempotent (it replaces if the key already exists), so
+re-running the hook on helm upgrade is safe.
+*/}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-amd-capacity-patcher
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: amd-capacity-patcher
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/part-of: sims
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 4
+  ttlSecondsAfterFinished: 600
+  template:
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: {{ .Release.Name }}-amd-capacity-patcher
+      containers:
+        - name: patcher
+          image: bitnami/kubectl:1.31
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: GPUS
+              value: "{{ .Values.gpusPerNode }}"
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -euo pipefail
+              NODES=$(kubectl get nodes -l sims.io/gpu-vendor=amd -o name)
+              if [ -z "$NODES" ]; then
+                echo "no nodes labeled sims.io/gpu-vendor=amd; nothing to patch" >&2
+                exit 0
+              fi
+              for n in $NODES; do
+                echo "patching $n with amd.com/gpu=$GPUS"
+                kubectl patch "$n" --subresource=status --type=json \
+                  -p "[{\"op\":\"add\",\"path\":\"/status/capacity/amd.com~1gpu\",\"value\":\"$GPUS\"}]"
+              done
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1001
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+{{- end }}
