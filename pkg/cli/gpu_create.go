@@ -318,6 +318,11 @@ func buildNVIDIAValues(o *createOpts) map[string]any {
 	if o.migProfile != "" {
 		dcgmExtras["migProfile"] = o.migProfile
 	}
+	if o.taint {
+		dcgmExtras["tolerations"] = []map[string]any{
+			{"key": "nvidia.com/gpu", "operator": "Exists", "effect": "NoSchedule"},
+		}
+	}
 	if len(dcgmExtras) > 0 {
 		vals["fake-dcgm-extras"] = dcgmExtras
 	}
@@ -352,6 +357,11 @@ func buildAMDValues(o *createOpts) map[string]any {
 	}
 	if o.defaultUtilization != "" {
 		sub["defaultUtilization"] = o.defaultUtilization
+	}
+	if o.taint {
+		sub["tolerations"] = []map[string]any{
+			{"key": "amd.com/gpu", "operator": "Exists", "effect": "NoSchedule"},
+		}
 	}
 	vals["fake-rocm-gpu-operator"] = sub
 	return vals

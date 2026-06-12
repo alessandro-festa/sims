@@ -28,6 +28,11 @@ func TestRender_Golden(t *testing.T) {
 			opts:   Options{Vendor: VendorNVIDIA, Workers: 4, Taint: true},
 			golden: "nvidia_taint_4workers.yaml",
 		},
+		{
+			name:   "amd_taint",
+			opts:   Options{Vendor: VendorAMD, Workers: 2, Taint: true},
+			golden: "amd_taint.yaml",
+		},
 	}
 
 	for _, tc := range cases {

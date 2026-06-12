@@ -127,10 +127,14 @@ nodes:
       {{ $k }}: "{{ $v }}"
 {{- end }}
 {{- if $.Taint }}
-    taints:
-      - key: "{{ $.Vendor }}.com/gpu"
-        value: "present"
-        effect: NoSchedule
+    kubeadmConfigPatches:
+      - |
+        kind: JoinConfiguration
+        nodeRegistration:
+          taints:
+            - key: "{{ $.Vendor }}.com/gpu"
+              value: "present"
+              effect: NoSchedule
 {{- end }}
 {{- end }}
 {{- if .EnableDRA }}

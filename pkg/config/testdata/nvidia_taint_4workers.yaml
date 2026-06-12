@@ -12,10 +12,14 @@ nodes:
       nvidia.com/gpu.deploy.dcgm-exporter: "true"
       nvidia.com/gpu.deploy.device-plugin: "true"
       run.ai/simulated-gpu-node-pool: "default"
-    taints:
-      - key: "nvidia.com/gpu"
-        value: "present"
-        effect: NoSchedule
+    kubeadmConfigPatches:
+      - |
+        kind: JoinConfiguration
+        nodeRegistration:
+          taints:
+            - key: "nvidia.com/gpu"
+              value: "present"
+              effect: NoSchedule
   - role: worker
     image: kindest/node:v1.31.0
     labels:
@@ -24,10 +28,14 @@ nodes:
       nvidia.com/gpu.deploy.dcgm-exporter: "true"
       nvidia.com/gpu.deploy.device-plugin: "true"
       run.ai/simulated-gpu-node-pool: "default"
-    taints:
-      - key: "nvidia.com/gpu"
-        value: "present"
-        effect: NoSchedule
+    kubeadmConfigPatches:
+      - |
+        kind: JoinConfiguration
+        nodeRegistration:
+          taints:
+            - key: "nvidia.com/gpu"
+              value: "present"
+              effect: NoSchedule
   - role: worker
     image: kindest/node:v1.31.0
     labels:
@@ -36,10 +44,14 @@ nodes:
       nvidia.com/gpu.deploy.dcgm-exporter: "true"
       nvidia.com/gpu.deploy.device-plugin: "true"
       run.ai/simulated-gpu-node-pool: "default"
-    taints:
-      - key: "nvidia.com/gpu"
-        value: "present"
-        effect: NoSchedule
+    kubeadmConfigPatches:
+      - |
+        kind: JoinConfiguration
+        nodeRegistration:
+          taints:
+            - key: "nvidia.com/gpu"
+              value: "present"
+              effect: NoSchedule
   - role: worker
     image: kindest/node:v1.31.0
     labels:
@@ -48,10 +60,14 @@ nodes:
       nvidia.com/gpu.deploy.dcgm-exporter: "true"
       nvidia.com/gpu.deploy.device-plugin: "true"
       run.ai/simulated-gpu-node-pool: "default"
-    taints:
-      - key: "nvidia.com/gpu"
-        value: "present"
-        effect: NoSchedule
+    kubeadmConfigPatches:
+      - |
+        kind: JoinConfiguration
+        nodeRegistration:
+          taints:
+            - key: "nvidia.com/gpu"
+              value: "present"
+              effect: NoSchedule
 featureGates:
   DynamicResourceAllocation: true
 runtimeConfig:

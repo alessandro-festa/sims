@@ -210,6 +210,43 @@ func TestReconcile_CPXMultipliesAdvertisedCapacity(t *testing.T) {
 	}
 }
 
+func TestReconcile_TolerationsPropagate(t *testing.T) {
+	tol := []corev1.Toleration{{Key: "amd.com/gpu", Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoSchedule}}
+	cr := &amdv1alpha1.DeviceConfig{
+		ObjectMeta: metav1.ObjectMeta{Name: "default"},
+		Spec: amdv1alpha1.DeviceConfigSpec{
+			Tolerations: tol,
+		},
+	}
+	r, c := newReconciler(t, cr)
+	ctx := context.Background()
+
+	if _, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKey{Name: "default"}}); err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+
+	for _, name := range []string{"amd-device-plugin", "amd-device-metrics-exporter", "amd-node-labeller"} {
+		var ds appsv1.DaemonSet
+		if err := c.Get(ctx, client.ObjectKey{Namespace: "gpu-operator", Name: name}, &ds); err != nil {
+			t.Errorf("expected DaemonSet %s: %v", name, err)
+			continue
+		}
+		got := ds.Spec.Template.Spec.Tolerations
+		if len(got) != 1 || got[0].Key != "amd.com/gpu" {
+			t.Errorf("%s: expected amd.com/gpu toleration, got %+v", name, got)
+		}
+	}
+
+	var dep appsv1.Deployment
+	if err := c.Get(ctx, client.ObjectKey{Namespace: "gpu-operator", Name: "amd-status-updater"}, &dep); err != nil {
+		t.Fatalf("expected status-updater Deployment: %v", err)
+	}
+	got := dep.Spec.Template.Spec.Tolerations
+	if len(got) != 1 || got[0].Key != "amd.com/gpu" {
+		t.Errorf("status-updater: expected amd.com/gpu toleration, got %+v", got)
+	}
+}
+
 func containsArg(args []string, want string) bool {
 	return slices.Contains(args, want)
 }
