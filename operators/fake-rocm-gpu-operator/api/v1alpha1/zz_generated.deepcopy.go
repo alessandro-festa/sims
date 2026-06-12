@@ -5,7 +5,8 @@
 package v1alpha1
 
 import (
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -111,6 +112,13 @@ func (in *DeviceConfigSpec) DeepCopyInto(out *DeviceConfigSpec) {
 			(*out)[key] = val
 		}
 	}
+	if in.Tolerations != nil {
+		in, out := &in.Tolerations, &out.Tolerations
+		*out = make([]v1.Toleration, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	out.CommonConfig = in.CommonConfig
 	out.ComputePartition = in.ComputePartition
 }
@@ -130,7 +138,7 @@ func (in *DeviceConfigStatus) DeepCopyInto(out *DeviceConfigStatus) {
 	*out = *in
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make([]v1.Condition, len(*in))
+		*out = make([]metav1.Condition, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}

@@ -97,12 +97,13 @@ func (r *DeviceConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	if len(nodeSelector) == 0 {
 		nodeSelector = r.Cfg.DefaultNodeSelector
 	}
+	tolerations := cr.Spec.Tolerations
 
 	status := amdv1alpha1.DeviceConfigStatus{}
 
 	// device-plugin DaemonSet
 	if enabled(cr.Spec.DevicePlugin.Enable, true) {
-		ds := r.buildDevicePluginDS(&cr, nodeSelector, cr.Spec.DevicePlugin.ImagePullPolicy)
+		ds := r.buildDevicePluginDS(&cr, nodeSelector, tolerations, cr.Spec.DevicePlugin.ImagePullPolicy)
 		if err := r.applyDaemonSet(ctx, ds, &cr); err != nil {
 			return ctrl.Result{}, fmt.Errorf("apply device-plugin DS: %w", err)
 		}
@@ -115,7 +116,7 @@ func (r *DeviceConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	// metrics-exporter DaemonSet
 	if enabled(cr.Spec.MetricsExporter.Enable, true) {
-		ds := r.buildMetricsExporterDS(&cr, nodeSelector)
+		ds := r.buildMetricsExporterDS(&cr, nodeSelector, tolerations)
 		if err := r.applyDaemonSet(ctx, ds, &cr); err != nil {
 			return ctrl.Result{}, fmt.Errorf("apply metrics-exporter DS: %w", err)
 		}
@@ -135,13 +136,13 @@ func (r *DeviceConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	// status-updater Deployment (always on for Phase 5+; not gated by spec)
-	dep := r.buildStatusUpdaterDeployment(&cr, nodeSelector)
+	dep := r.buildStatusUpdaterDeployment(&cr, tolerations)
 	if err := r.applyDeployment(ctx, dep, &cr); err != nil {
 		return ctrl.Result{}, fmt.Errorf("apply status-updater Deploy: %w", err)
 	}
 
 	// node-labeller DaemonSet (always on)
-	labellerDS := r.buildNodeLabellerDS(&cr, nodeSelector)
+	labellerDS := r.buildNodeLabellerDS(&cr, nodeSelector, tolerations)
 	if err := r.applyDaemonSet(ctx, labellerDS, &cr); err != nil {
 		return ctrl.Result{}, fmt.Errorf("apply node-labeller DS: %w", err)
 	}
@@ -225,7 +226,7 @@ func (r *DeviceConfigReconciler) commonLabels(app string) map[string]string {
 	}
 }
 
-func (r *DeviceConfigReconciler) buildDevicePluginDS(cr *amdv1alpha1.DeviceConfig, nodeSelector map[string]string, pullPolicy string) *appsv1.DaemonSet {
+func (r *DeviceConfigReconciler) buildDevicePluginDS(cr *amdv1alpha1.DeviceConfig, nodeSelector map[string]string, tolerations []corev1.Toleration, pullPolicy string) *appsv1.DaemonSet {
 	pp := corev1.PullPolicy(pullPolicy)
 	if pp == "" {
 		pp = r.Cfg.ImagePullPolicy
@@ -245,6 +246,7 @@ func (r *DeviceConfigReconciler) buildDevicePluginDS(cr *amdv1alpha1.DeviceConfi
 				Spec: corev1.PodSpec{
 					ServiceAccountName: "amd-device-plugin",
 					NodeSelector:       nodeSelector,
+					Tolerations:        tolerations,
 					PriorityClassName:  "system-node-critical",
 					Containers: []corev1.Container{{
 						Name:            "device-plugin",
@@ -278,7 +280,7 @@ func (r *DeviceConfigReconciler) buildDevicePluginDS(cr *amdv1alpha1.DeviceConfi
 	}
 }
 
-func (r *DeviceConfigReconciler) buildMetricsExporterDS(cr *amdv1alpha1.DeviceConfig, nodeSelector map[string]string) *appsv1.DaemonSet {
+func (r *DeviceConfigReconciler) buildMetricsExporterDS(cr *amdv1alpha1.DeviceConfig, nodeSelector map[string]string, tolerations []corev1.Toleration) *appsv1.DaemonSet {
 	lbl := r.commonLabels("amd-device-metrics-exporter")
 	nonRoot := int64(65532)
 	tBool := true
@@ -298,6 +300,7 @@ func (r *DeviceConfigReconciler) buildMetricsExporterDS(cr *amdv1alpha1.DeviceCo
 				Spec: corev1.PodSpec{
 					ServiceAccountName: "amd-device-metrics-exporter",
 					NodeSelector:       nodeSelector,
+					Tolerations:        tolerations,
 					Containers: []corev1.Container{{
 						Name:            "metrics-exporter",
 						Image:           r.Cfg.Image,
@@ -341,7 +344,7 @@ func (r *DeviceConfigReconciler) buildMetricsExporterService(_ *amdv1alpha1.Devi
 	}
 }
 
-func (r *DeviceConfigReconciler) buildStatusUpdaterDeployment(_ *amdv1alpha1.DeviceConfig, _ map[string]string) *appsv1.Deployment {
+func (r *DeviceConfigReconciler) buildStatusUpdaterDeployment(_ *amdv1alpha1.DeviceConfig, tolerations []corev1.Toleration) *appsv1.Deployment {
 	lbl := r.commonLabels("amd-status-updater")
 	replicas := int32(1)
 	nonRoot := int64(65532)
@@ -357,6 +360,7 @@ func (r *DeviceConfigReconciler) buildStatusUpdaterDeployment(_ *amdv1alpha1.Dev
 				ObjectMeta: metav1.ObjectMeta{Labels: lbl},
 				Spec: corev1.PodSpec{
 					ServiceAccountName: "amd-status-updater",
+					Tolerations:        tolerations,
 					Containers: []corev1.Container{{
 						Name:            "status-updater",
 						Image:           r.Cfg.Image,
@@ -381,7 +385,7 @@ func (r *DeviceConfigReconciler) buildStatusUpdaterDeployment(_ *amdv1alpha1.Dev
 	}
 }
 
-func (r *DeviceConfigReconciler) buildNodeLabellerDS(_ *amdv1alpha1.DeviceConfig, nodeSelector map[string]string) *appsv1.DaemonSet {
+func (r *DeviceConfigReconciler) buildNodeLabellerDS(_ *amdv1alpha1.DeviceConfig, nodeSelector map[string]string, tolerations []corev1.Toleration) *appsv1.DaemonSet {
 	lbl := r.commonLabels("amd-node-labeller")
 	nonRoot := int64(65532)
 	tBool := true
@@ -395,6 +399,7 @@ func (r *DeviceConfigReconciler) buildNodeLabellerDS(_ *amdv1alpha1.DeviceConfig
 				Spec: corev1.PodSpec{
 					ServiceAccountName: "amd-node-labeller",
 					NodeSelector:       nodeSelector,
+					Tolerations:        tolerations,
 					Containers: []corev1.Container{{
 						Name:            "node-labeller",
 						Image:           r.Cfg.Image,

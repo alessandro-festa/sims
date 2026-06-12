@@ -26,4 +26,8 @@ spec:
   computePartition:
     mode: {{ .Values.computePartition.mode | quote }}
     count: {{ .Values.computePartition.count }}
+  {{- with .Values.tolerations }}
+  tolerations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 {{- end }}

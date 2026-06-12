@@ -45,7 +45,7 @@ type createOpts struct {
 	gpusPerWorker  int
 	k8sVersion     string
 	withMonitoring bool
-	taint          bool
+	taintedWorkers int
 	configPath     string
 
 	productName    string
@@ -75,7 +75,7 @@ func newGPUCreateCmd() *cobra.Command {
 	cmd.Flags().IntVar(&o.gpusPerWorker, "gpus-per-worker", 2, "Fake GPUs advertised per worker")
 	cmd.Flags().StringVar(&o.k8sVersion, "k8s-version", "v1.31.0", "Kubernetes version for kind nodes")
 	cmd.Flags().BoolVar(&o.withMonitoring, "monitoring", false, "Install kube-prometheus-stack + vendor dashboard")
-	cmd.Flags().BoolVar(&o.taint, "taint", false, "Add <vendor>.com/gpu=present:NoSchedule taint to worker nodes")
+	cmd.Flags().IntVar(&o.taintedWorkers, "tainted-workers", 0, "Taint first N workers with <vendor>.com/gpu=present:NoSchedule (0 = none)")
 	return cmd
 }
 
@@ -106,8 +106,8 @@ func applyConfig(cmd *cobra.Command, o *createOpts) error {
 	if !cmd.Flags().Changed("k8s-version") && cfg.K8sVersion != "" {
 		o.k8sVersion = cfg.K8sVersion
 	}
-	if !cmd.Flags().Changed("taint") {
-		o.taint = cfg.Taint
+	if !cmd.Flags().Changed("tainted-workers") {
+		o.taintedWorkers = cfg.TaintedWorkers
 	}
 	if !cmd.Flags().Changed("monitoring") {
 		o.withMonitoring = cfg.Monitoring
@@ -138,11 +138,11 @@ func runCreate(ctx context.Context, stdout io.Writer, o *createOpts) error {
 	}
 
 	raw, err := config.Render(config.Options{
-		Vendor:     o.vendor,
-		Name:       name,
-		Workers:    o.workers,
-		K8sVersion: o.k8sVersion,
-		Taint:      o.taint,
+		Vendor:         o.vendor,
+		Name:           name,
+		Workers:        o.workers,
+		K8sVersion:     o.k8sVersion,
+		TaintedWorkers: o.taintedWorkers,
 	})
 	if err != nil {
 		return err
@@ -179,11 +179,17 @@ func runCreate(ctx context.Context, stdout io.Writer, o *createOpts) error {
 		return err
 	}
 
+	renderOpts := config.Options{
+		Vendor:         o.vendor,
+		Workers:        o.workers,
+		TaintedWorkers: o.taintedWorkers,
+	}
+	gpuWorkers := renderOpts.GPUWorkers()
 	log.Info("waiting for GPU capacity on workers",
-		"resource", gpuResource, "per-worker", o.gpusPerWorker, "workers", o.workers)
+		"resource", gpuResource, "per-worker", o.gpusPerWorker, "gpu-workers", gpuWorkers)
 	wait, cancel := context.WithTimeout(ctx, capacityWaitWindow)
 	defer cancel()
-	if err := kube.WaitForResourceCapacity(wait, kc, gpuResource, o.gpusPerWorker, o.workers); err != nil {
+	if err := kube.WaitForResourceCapacity(wait, kc, gpuResource, o.gpusPerWorker, gpuWorkers); err != nil {
 		return err
 	}
 
@@ -197,9 +203,15 @@ func runCreate(ctx context.Context, stdout io.Writer, o *createOpts) error {
 	if o.withMonitoring {
 		monitoringMsg = "\nmonitoring: run `sims gpu dashboard` to open Grafana"
 	}
-	_, _ = fmt.Fprintf(stdout,
-		"cluster %q ready — %d workers × %d %s\nkubeconfig context: kind-%s%s\n",
-		name, o.workers, o.gpusPerWorker, gpuResource, name, monitoringMsg)
+	if o.taintedWorkers > 0 {
+		_, _ = fmt.Fprintf(stdout,
+			"cluster %q ready — %d GPU workers (tainted) + %d plain workers × %d %s\nkubeconfig context: kind-%s%s\n",
+			name, gpuWorkers, o.workers-gpuWorkers, o.gpusPerWorker, gpuResource, name, monitoringMsg)
+	} else {
+		_, _ = fmt.Fprintf(stdout,
+			"cluster %q ready — %d workers × %d %s\nkubeconfig context: kind-%s%s\n",
+			name, o.workers, o.gpusPerWorker, gpuResource, name, monitoringMsg)
+	}
 	return nil
 }
 
@@ -318,6 +330,11 @@ func buildNVIDIAValues(o *createOpts) map[string]any {
 	if o.migProfile != "" {
 		dcgmExtras["migProfile"] = o.migProfile
 	}
+	if o.taintedWorkers > 0 {
+		dcgmExtras["tolerations"] = []map[string]any{
+			{"key": "nvidia.com/gpu", "operator": "Exists", "effect": "NoSchedule"},
+		}
+	}
 	if len(dcgmExtras) > 0 {
 		vals["fake-dcgm-extras"] = dcgmExtras
 	}
@@ -352,6 +369,11 @@ func buildAMDValues(o *createOpts) map[string]any {
 	}
 	if o.defaultUtilization != "" {
 		sub["defaultUtilization"] = o.defaultUtilization
+	}
+	if o.taintedWorkers > 0 {
+		sub["tolerations"] = []map[string]any{
+			{"key": "amd.com/gpu", "operator": "Exists", "effect": "NoSchedule"},
+		}
 	}
 	vals["fake-rocm-gpu-operator"] = sub
 	return vals

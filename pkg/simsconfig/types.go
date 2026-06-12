@@ -12,7 +12,7 @@ type SimsConfig struct {
 	Name       string   `json:"name,omitempty"`
 	Workers    int      `json:"workers,omitempty"`
 	K8sVersion string   `json:"k8sVersion,omitempty"`
-	Taint      bool     `json:"taint,omitempty"`
+	TaintedWorkers int  `json:"taintedWorkers,omitempty"`
 	GPU        GPU      `json:"gpu"`
 	Workload   Workload `json:"workload"`
 	Monitoring bool     `json:"monitoring,omitempty"`

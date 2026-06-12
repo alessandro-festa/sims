@@ -25,8 +25,18 @@ func TestRender_Golden(t *testing.T) {
 		},
 		{
 			name:   "nvidia_taint_4workers",
-			opts:   Options{Vendor: VendorNVIDIA, Workers: 4, Taint: true},
+			opts:   Options{Vendor: VendorNVIDIA, Workers: 4, TaintedWorkers: 4},
 			golden: "nvidia_taint_4workers.yaml",
+		},
+		{
+			name:   "amd_taint",
+			opts:   Options{Vendor: VendorAMD, Workers: 2, TaintedWorkers: 2},
+			golden: "amd_taint.yaml",
+		},
+		{
+			name:   "nvidia_selective_taint_2of4",
+			opts:   Options{Vendor: VendorNVIDIA, Workers: 4, TaintedWorkers: 2},
+			golden: "nvidia_selective_taint_2of4.yaml",
 		},
 	}
 
@@ -52,6 +62,32 @@ func TestRender_Golden(t *testing.T) {
 				t.Errorf("mismatch:\n--- got ---\n%s\n--- want ---\n%s", got, want)
 			}
 		})
+	}
+}
+
+func TestRender_SelectiveTaintOnlyFirstN(t *testing.T) {
+	out, err := Render(Options{Vendor: VendorNVIDIA, Workers: 4, TaintedWorkers: 2})
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	s := string(out)
+	got := strings.Count(s, "kubeadmConfigPatches:")
+	if got != 2 {
+		t.Errorf("expected 2 tainted workers, got %d kubeadmConfigPatches blocks in:\n%s", got, s)
+	}
+	gotWorkers := strings.Count(s, "role: worker")
+	if gotWorkers != 4 {
+		t.Errorf("expected 4 workers total, got %d in:\n%s", gotWorkers, s)
+	}
+}
+
+func TestRender_ZeroTaintedWorkersNoPatches(t *testing.T) {
+	out, err := Render(Options{Vendor: VendorNVIDIA, Workers: 2, TaintedWorkers: 0})
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	if strings.Contains(string(out), "kubeadmConfigPatches") {
+		t.Errorf("expected no kubeadmConfigPatches when TaintedWorkers=0:\n%s", out)
 	}
 }
 

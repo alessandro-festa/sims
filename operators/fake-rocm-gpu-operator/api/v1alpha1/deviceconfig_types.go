@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -33,6 +34,11 @@ type DeviceConfigSpec struct {
 	// when empty.
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
+	// Tolerations applied to every child DS+Deploy PodSpec so they can
+	// schedule on tainted GPU nodes.
+	// +optional
+	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 
 	// CommonConfig collects fields shared by every child workload.
 	// Accepted for upstream compatibility; sims uses InitContainerImage
