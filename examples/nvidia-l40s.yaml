@@ -1,0 +1,6 @@
+apiVersion: sims.io/v1
+kind: SimsConfig
+vendor: nvidia
+gpu:
+  family: L40S
+  perWorker: 2

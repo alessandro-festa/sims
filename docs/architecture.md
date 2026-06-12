@@ -76,6 +76,14 @@ kind nodes are containers. They share the host kernel and cannot load kernel mod
 7. Grafana renders the vendor dashboard mounted as a `grafana_dashboard: "1"` ConfigMap.
 8. The pod's actual container errors out (no real driver). That is fine — scheduling and metrics are the deliverable.
 
+## SimsConfig YAML
+
+The CLI accepts `--config <path>` to load a declarative `SimsConfig` YAML file instead of (or alongside) CLI flags. The config specifies vendor, GPU family, worker count, partition mode, and monitoring preference. A built-in GPU family catalog (18 families across NVIDIA and AMD) auto-fills product name and memory from the family name.
+
+Config values populate the same `createOpts` struct that CLI flags do. When both are present, explicit CLI flags override config values (detected via `cobra.Command.Flags().Changed()`). Family lookup resolves to the chart-level values: `gpuProduct`/`gpuMemory` for NVIDIA, `productName`/`gpuMemoryBytes`/`computePartition` for AMD.
+
+See [quickstart.md](quickstart.md#config-file-recommended) for the full config reference and GPU family catalog.
+
 ## Two independent Helm releases per cluster
 
 - **GPU stack** (always installed) — namespace `gpu-operator`. Either `sims-nvidia` (wraps `run-ai/fake-gpu-operator`) or `sims-amd` (wraps `fake-rocm-gpu-operator`).

@@ -29,11 +29,123 @@ go build -o bin/sims ./cmd/sims
 
 Validates Docker, kind clusters, and GHCR reachability. Exit 0 means you're good to go; failures print a one-line remediation hint.
 
+## Config file (recommended)
+
+Instead of passing every option as a CLI flag, you can write a `SimsConfig` YAML file and pass it with `--config`:
+
+```yaml
+# sims.yaml
+apiVersion: sims.io/v1
+kind: SimsConfig
+vendor: nvidia          # "nvidia" or "amd"
+name: my-cluster        # optional, defaults to sims-<vendor>
+workers: 2              # number of worker nodes (default: 2)
+k8sVersion: v1.31.0     # optional
+taint: false            # add GPU taints to workers (default: false)
+gpu:
+  family: H100          # GPU family from the catalog below
+  perWorker: 4          # fake GPUs per worker (default: 2)
+  memoryBytes: 85899345920  # override catalog memory (optional)
+  features:
+    mig: 1g.10gb        # NVIDIA-only: MIG profile label
+    partition:           # AMD-only: compute partition
+      mode: cpx          # "spx" (single) or "cpx" (compute)
+      count: 4           # 1-8 partitions
+workload:
+  defaultUtilization: "5-15"  # simulated GPU util range (future)
+monitoring: true        # install Prometheus + Grafana
+```
+
+```bash
+./bin/sims gpu create --config sims.yaml
+```
+
+CLI flags override config values — useful for one-off tweaks:
+
+```bash
+./bin/sims gpu create --config sims.yaml --workers 1 --gpus-per-worker 8
+```
+
+### GPU family catalog
+
+When you set `gpu.family`, sims auto-fills the product name and memory from a built-in catalog. You only need to specify the family name — everything else is optional.
+
+**NVIDIA:**
+
+| Family | Product Name | Memory | Type |
+|--------|-------------|--------|------|
+| `GB300` | B300 | 288 GiB | HBM3e |
+| `GB200` | B200 | 192 GiB | HBM3e |
+| `H200` | H200 | 141 GiB | HBM3e |
+| `H100` | H100 | 80 GiB | HBM3 |
+| `A100` | A100 | 40 GiB | HBM2e |
+| `L40S` | L40S | 48 GiB | GDDR6 |
+| `L40` | L40 | 48 GiB | GDDR6 |
+| `L4` | L4 | 24 GiB | GDDR6 |
+| `T4` | Tesla T4 | 16 GiB | GDDR6 |
+
+**AMD:**
+
+| Family | Product Name | Memory | Type |
+|--------|-------------|--------|------|
+| `MI440X` | MI440X | 432 GiB | HBM4 |
+| `MI430X` | MI430X | 432 GiB | HBM4 |
+| `MI325X` | MI325X | 256 GiB | HBM3e |
+| `MI300X` | MI300X | 192 GiB | HBM3 |
+| `MI300A` | MI300A | 128 GiB | HBM3 |
+| `MI250X` | MI250X | 128 GiB | HBM2e |
+| `MI250` | MI250 | 128 GiB | HBM2e |
+| `MI210` | MI210 | 64 GiB | HBM2e |
+| `MI100` | MI100 | 32 GiB | HBM2 |
+
+The product name flows into node labels (NVIDIA) and controller args (AMD). Memory flows into the chart values so Grafana dashboards show realistic memory usage. Override with `gpu.memoryBytes` if needed.
+
+### Example configs
+
+**NVIDIA H100 with monitoring:**
+
+```yaml
+apiVersion: sims.io/v1
+kind: SimsConfig
+vendor: nvidia
+gpu:
+  family: H100
+  perWorker: 4
+monitoring: true
+```
+
+**AMD MI300X with CPX partitioning:**
+
+```yaml
+apiVersion: sims.io/v1
+kind: SimsConfig
+vendor: amd
+gpu:
+  family: MI300X
+  features:
+    partition:
+      mode: cpx
+      count: 4
+```
+
+**Minimal — just specify vendor and family:**
+
+```yaml
+apiVersion: sims.io/v1
+kind: SimsConfig
+vendor: nvidia
+gpu:
+  family: L40S
+```
+
 ## NVIDIA path
 
 ```bash
 # 1. Create cluster: 2 workers × 2 fake NVIDIA GPUs each, with monitoring.
+#    Using flags:
 ./bin/sims gpu create --vendor nvidia --workers 2 --gpus-per-worker 2 --monitoring
+#    Or using a config file:
+#    ./bin/sims gpu create --config examples/nvidia-h100.yaml
 
 # 2. Verify capacity (or `./bin/sims gpu status` for a fuller summary)
 kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{": "}{.status.capacity.nvidia\.com/gpu}{"\n"}{end}'
@@ -54,7 +166,10 @@ kubectl get pod sims-nvidia-sample -w   # Reaches Running
 
 ```bash
 # 1. Create cluster: 2 workers × 2 fake AMD GPUs, with monitoring.
+#    Using flags:
 ./bin/sims gpu create --vendor amd --workers 2 --gpus-per-worker 2 --monitoring
+#    Or using a config file:
+#    ./bin/sims gpu create --config examples/amd-mi300x-cpx.yaml
 
 # 2. Within ~30 s the operator's device-plugin advertises capacity:
 kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{": "}{.status.capacity.amd\.com/gpu}{"\n"}{end}'
