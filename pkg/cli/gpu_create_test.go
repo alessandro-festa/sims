@@ -86,6 +86,19 @@ func TestBuildNVIDIAValues_SpaceToDash(t *testing.T) {
 	}
 }
 
+func TestBuildNVIDIAValues_MIGProfile(t *testing.T) {
+	v := buildNVIDIAValues(&createOpts{
+		gpusPerWorker:  2,
+		productName:    "H100",
+		gpuMemoryBytes: 80 * (1 << 30),
+		migProfile:     "1g.10gb",
+	})
+	dcgm := v["fake-dcgm-extras"].(map[string]any)
+	if dcgm["migProfile"] != "1g.10gb" {
+		t.Errorf("dcgm migProfile = %v, want 1g.10gb", dcgm["migProfile"])
+	}
+}
+
 func TestBuildAMDValues_NoConfig(t *testing.T) {
 	v := buildAMDValues(&createOpts{gpusPerWorker: 3})
 	if v["gpusPerNode"] != 3 {
@@ -127,6 +140,17 @@ func TestBuildAMDValues_WithFamilyAndPartition(t *testing.T) {
 	}
 	if cp["count"] != 4 {
 		t.Errorf("partition count = %v, want 4", cp["count"])
+	}
+}
+
+func TestBuildAMDValues_DefaultUtilization(t *testing.T) {
+	v := buildAMDValues(&createOpts{
+		gpusPerWorker:      2,
+		defaultUtilization: "40-60",
+	})
+	sub := v["fake-rocm-gpu-operator"].(map[string]any)
+	if sub["defaultUtilization"] != "40-60" {
+		t.Errorf("defaultUtilization = %v, want 40-60", sub["defaultUtilization"])
 	}
 }
 

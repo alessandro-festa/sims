@@ -29,6 +29,7 @@ extraMetrics:
 fake-dcgm-extras:
   gpusPerNode: 2
   productName: "Tesla T4"
+  migProfile: ""
   image:
     repository: ghcr.io/alessandro-festa/fake-dcgm-extras
     tag: "0.1.0"

@@ -50,8 +50,10 @@ type createOpts struct {
 
 	productName    string
 	gpuMemoryBytes int64
-	partitionMode  string
-	partitionCount int
+	migProfile         string
+	partitionMode      string
+	partitionCount     int
+	defaultUtilization string
 }
 
 func newGPUCreateCmd() *cobra.Command {
@@ -115,8 +117,10 @@ func applyConfig(cmd *cobra.Command, o *createOpts) error {
 		o.productName = fam.ProductName
 		o.gpuMemoryBytes = cfg.GPU.MemoryBytes
 	}
+	o.migProfile = cfg.GPU.Features.MIG
 	o.partitionMode = cfg.GPU.Features.Partition.Mode
 	o.partitionCount = cfg.GPU.Features.Partition.Count
+	o.defaultUtilization = cfg.Workload.DefaultUtilization
 	return nil
 }
 
@@ -300,6 +304,7 @@ func buildNVIDIAValues(o *createOpts) map[string]any {
 	pool := map[string]any{
 		"gpuCount": o.gpusPerWorker,
 	}
+	dcgmExtras := map[string]any{}
 	if o.productName != "" {
 		gpuProduct := strings.ReplaceAll(o.productName, " ", "-")
 		memMiB := o.gpuMemoryBytes / (1 << 20)
@@ -307,10 +312,14 @@ func buildNVIDIAValues(o *createOpts) map[string]any {
 		vals["gpuMemory"] = memMiB
 		pool["gpuProduct"] = gpuProduct
 		pool["gpuMemory"] = memMiB
-		vals["fake-dcgm-extras"] = map[string]any{
-			"gpusPerNode": o.gpusPerWorker,
-			"productName": o.productName,
-		}
+		dcgmExtras["gpusPerNode"] = o.gpusPerWorker
+		dcgmExtras["productName"] = o.productName
+	}
+	if o.migProfile != "" {
+		dcgmExtras["migProfile"] = o.migProfile
+	}
+	if len(dcgmExtras) > 0 {
+		vals["fake-dcgm-extras"] = dcgmExtras
 	}
 	vals["fake-gpu-operator"] = map[string]any{
 		"topology": map[string]any{
@@ -340,6 +349,9 @@ func buildAMDValues(o *createOpts) map[string]any {
 			"mode":  o.partitionMode,
 			"count": o.partitionCount,
 		}
+	}
+	if o.defaultUtilization != "" {
+		sub["defaultUtilization"] = o.defaultUtilization
 	}
 	vals["fake-rocm-gpu-operator"] = sub
 	return vals

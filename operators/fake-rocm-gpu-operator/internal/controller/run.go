@@ -41,6 +41,7 @@ func Run(ctx context.Context, args []string, stderr io.Writer) error {
 	memBytes := fs.Int64("gpu-memory-bytes", 206158430208, "Forwarded to metrics-exporter via --memory-bytes.")
 	resourceName := fs.String("resource-name", "amd.com/gpu", "Forwarded to device-plugin via --resource-name.")
 	nodeSelector := fs.String("default-node-selector", "sims.io/gpu-vendor=amd", "Default nodeSelector applied to child workloads when a DeviceConfig spec doesn't set one. Format: k1=v1,k2=v2.")
+	defaultUtil := fs.String("default-utilization", "5-15", "Default utilization range for pods without a sims.io/simulated-gpu-utilization annotation.")
 	metricsAddr := fs.String("metrics-bind-address", ":8080", "Address the controller-runtime metrics endpoint binds to.")
 	probeAddr := fs.String("health-probe-bind-address", ":8081", "Address the health/readiness probes bind to.")
 	if err := fs.Parse(args); err != nil {
@@ -77,6 +78,7 @@ func Run(ctx context.Context, args []string, stderr io.Writer) error {
 			ProductName:         *product,
 			GPUMemoryBytes:      *memBytes,
 			ResourceName:        *resourceName,
+			DefaultUtilization:  *defaultUtil,
 			DefaultNodeSelector: defaultNodeSelector,
 			Namespace:           *namespace,
 		},

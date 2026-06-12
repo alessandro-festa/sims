@@ -31,8 +31,12 @@ type Range struct {
 // Falls back to DefaultUtilizationRange on empty input; returns an error
 // for malformed input (callers can choose to default or surface).
 func ParseUtilization(s string) (Range, error) {
+	return ParseUtilizationWithDefault(s, DefaultUtilizationRange)
+}
+
+func ParseUtilizationWithDefault(s, fallback string) (Range, error) {
 	if s == "" {
-		s = DefaultUtilizationRange
+		s = fallback
 	}
 	parts := strings.SplitN(s, "-", 2)
 	if len(parts) != 2 {

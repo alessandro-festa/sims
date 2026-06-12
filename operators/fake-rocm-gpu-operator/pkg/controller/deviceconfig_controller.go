@@ -50,6 +50,9 @@ type Config struct {
 	// spec doesn't set one. Typically sims.io/gpu-vendor=amd.
 	DefaultNodeSelector map[string]string
 
+	// Default utilization range for pods without an annotation.
+	DefaultUtilization string
+
 	// Namespace where child workloads (and the DeviceConfig CR's RBAC)
 	// live. The chart's release namespace.
 	Namespace string
@@ -308,6 +311,7 @@ func (r *DeviceConfigReconciler) buildMetricsExporterDS(cr *amdv1alpha1.DeviceCo
 							"--topology-namespace=" + r.Cfg.Namespace,
 							"--partition-mode=" + mode,
 							fmt.Sprintf("--partition-count=%d", count),
+							"--default-utilization=" + r.Cfg.DefaultUtilization,
 						},
 						Env:   []corev1.EnvVar{{Name: "NODE_NAME", ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "spec.nodeName"}}}},
 						Ports: []corev1.ContainerPort{{Name: "gpu-metrics", ContainerPort: 5000, Protocol: corev1.ProtocolTCP}},
