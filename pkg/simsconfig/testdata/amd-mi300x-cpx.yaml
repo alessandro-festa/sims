@@ -1,0 +1,14 @@
+apiVersion: sims.io/v1
+kind: SimsConfig
+vendor: amd
+workers: 4
+gpu:
+  family: MI300X
+  perWorker: 2
+  features:
+    partition:
+      mode: cpx
+      count: 8
+workload:
+  defaultUtilization: "40-60"
+monitoring: true

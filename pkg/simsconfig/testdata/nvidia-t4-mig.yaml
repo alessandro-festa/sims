@@ -1,0 +1,8 @@
+apiVersion: sims.io/v1
+kind: SimsConfig
+vendor: nvidia
+workers: 3
+gpu:
+  family: T4
+  features:
+    mig: 1g.10gb
