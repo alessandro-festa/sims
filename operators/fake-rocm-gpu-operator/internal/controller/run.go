@@ -34,7 +34,7 @@ func Run(ctx context.Context, args []string, stderr io.Writer) error {
 	fs := flag.NewFlagSet("controller", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	namespace := fs.String("namespace", "gpu-operator", "Namespace where reconciled child workloads live.")
-	image := fs.String("image", "localhost:5001/fake-rocm-gpu-operator:dev", "Image used for every child workload (all are subcommands of this same image).")
+	image := fs.String("image", "ghcr.io/alessandro-festa/fake-rocm-gpu-operator:0.1.0", "Image used for every child workload (all are subcommands of this same image).")
 	pullPolicy := fs.String("image-pull-policy", "IfNotPresent", "imagePullPolicy applied to every child workload.")
 	gpus := fs.Int("gpus-per-node", 2, "Forwarded to device-plugin + metrics-exporter via --gpus-per-node.")
 	product := fs.String("product-name", "MI300X", "Forwarded to metrics-exporter (--product-name) + node-labeller.")

@@ -39,7 +39,7 @@ func newReconciler(t *testing.T, objs ...client.Object) (*DeviceConfigReconciler
 		Client: c,
 		Scheme: s,
 		Cfg: Config{
-			Image:               "localhost:5001/fake-rocm-gpu-operator:dev",
+			Image:               "ghcr.io/alessandro-festa/fake-rocm-gpu-operator:0.1.0",
 			ImagePullPolicy:     corev1.PullIfNotPresent,
 			GPUsPerNode:         2,
 			ProductName:         "MI300X",

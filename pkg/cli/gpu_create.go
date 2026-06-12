@@ -79,12 +79,6 @@ func runCreate(ctx context.Context, stdout io.Writer, o *createOpts) error {
 		name = "sims-" + o.vendor
 	}
 
-	log.Info("ensuring local image registry",
-		"name", cluster.DefaultRegistryName, "port", cluster.DefaultRegistryPort)
-	if err := cluster.EnsureRegistry(ctx); err != nil {
-		return err
-	}
-
 	raw, err := config.Render(config.Options{
 		Vendor:     o.vendor,
 		Name:       name,
@@ -99,16 +93,6 @@ func runCreate(ctx context.Context, stdout io.Writer, o *createOpts) error {
 	log.Info("creating kind cluster", "name", name, "workers", o.workers, "k8s", o.k8sVersion)
 	provider := cluster.New(log)
 	if err := provider.Create(ctx, name, raw); err != nil {
-		return err
-	}
-
-	log.Info("attaching registry to kind network")
-	if err := cluster.ConnectRegistryToKindNetwork(ctx); err != nil {
-		return err
-	}
-
-	log.Info("configuring containerd registry mirror on each node")
-	if err := cluster.WriteContainerdHostsToml(ctx, name); err != nil {
 		return err
 	}
 

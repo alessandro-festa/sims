@@ -27,9 +27,7 @@ go build -o bin/sims ./cmd/sims
 ./bin/sims gpu doctor
 ```
 
-Validates Docker, the `localhost:5001` `insecure-registries` setting (needed by `sims gpu load-image`), the local registry container, and GHCR reachability. Exit 0 means you're good to go; failures print a one-line remediation hint.
-
-If `gpu doctor` flags `insecure-registries`, add `"insecure-registries": ["localhost:5001"]` to your Docker daemon config (Docker Desktop → Settings → Docker Engine; or `/etc/docker/daemon.json` on Linux) and restart Docker. Alternative: skip the `insecure-registries` config entirely and use `docker tag X localhost:5001/X && kind load docker-image localhost:5001/X --name <cluster>` to side-step the registry.
+Validates Docker, kind clusters, and GHCR reachability. Exit 0 means you're good to go; failures print a one-line remediation hint.
 
 ## NVIDIA path
 
@@ -37,21 +35,17 @@ If `gpu doctor` flags `insecure-registries`, add `"insecure-registries": ["local
 # 1. Create cluster: 2 workers × 2 fake NVIDIA GPUs each, with monitoring.
 ./bin/sims gpu create --vendor nvidia --workers 2 --gpus-per-worker 2 --monitoring
 
-# 2. Phase 7 DCGM extras sidecar (fills temperature/power/clock panels) — load image:
-make -C operators/fake-dcgm-extras image
-./bin/sims gpu load-image fake-dcgm-extras:dev
-
-# 3. Verify capacity (or `./bin/sims gpu status` for a fuller summary)
+# 2. Verify capacity (or `./bin/sims gpu status` for a fuller summary)
 kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{": "}{.status.capacity.nvidia\.com/gpu}{"\n"}{end}'
 
-# 4. Schedule the canned sample pod.
+# 3. Schedule the canned sample pod.
 ./bin/sims gpu sample --vendor nvidia | kubectl apply -f -
 kubectl get pod sims-nvidia-sample -w   # Reaches Running
 
-# 5. Open Grafana → DCGM Exporter Dashboard.
+# 4. Open Grafana → DCGM Exporter Dashboard.
 ./bin/sims gpu dashboard                # http://localhost:3000  (admin / prom-operator)
 
-# 6. Clean up.
+# 5. Clean up.
 ./bin/sims gpu dashboard --stop
 ./bin/sims gpu delete
 ```
@@ -62,24 +56,17 @@ kubectl get pod sims-nvidia-sample -w   # Reaches Running
 # 1. Create cluster: 2 workers × 2 fake AMD GPUs, with monitoring.
 ./bin/sims gpu create --vendor amd --workers 2 --gpus-per-worker 2 --monitoring
 
-# 2. The AMD operator binary + the DCGM extras sidecar both ship as images
-# we build locally. Load them into the cluster:
-make -C operators/fake-rocm-gpu-operator image
-make -C operators/fake-dcgm-extras image
-./bin/sims gpu load-image fake-rocm-gpu-operator:dev
-./bin/sims gpu load-image fake-dcgm-extras:dev
-
-# 3. Within ~30 s the operator's device-plugin advertises capacity:
+# 2. Within ~30 s the operator's device-plugin advertises capacity:
 kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{": "}{.status.capacity.amd\.com/gpu}{"\n"}{end}'
 
-# 4. Schedule the canned sample pod.
+# 3. Schedule the canned sample pod.
 ./bin/sims gpu sample --vendor amd | kubectl apply -f -
 kubectl get pod sims-amd-sample -w      # Reaches Running
 
-# 5. Open Grafana → AMD Instinct Single Node Dashboard.
+# 4. Open Grafana → AMD Instinct Single Node Dashboard.
 ./bin/sims gpu dashboard                # http://localhost:3000  (admin / prom-operator)
 
-# 6. Clean up.
+# 5. Clean up.
 ./bin/sims gpu dashboard --stop
 ./bin/sims gpu delete
 ```
@@ -157,9 +144,9 @@ After ~30 s both pods will be `Running` and Grafana panels will show their simul
 
 ```bash
 docker build -t my-test-workload:dev .
-./bin/sims gpu load-image my-test-workload:dev
-kubectl run test --image=localhost:5001/my-test-workload:dev --restart=Never \
-  --overrides='{"spec":{"containers":[{"name":"test","image":"localhost:5001/my-test-workload:dev","resources":{"limits":{"nvidia.com/gpu":"1"}}}]}}'
+kind load docker-image my-test-workload:dev --name sims-nvidia
+kubectl run test --image=my-test-workload:dev --restart=Never \
+  --overrides='{"spec":{"containers":[{"name":"test","image":"my-test-workload:dev","imagePullPolicy":"Never","resources":{"limits":{"nvidia.com/gpu":"1"}}}]}}'
 ```
 
 **Drive simulated GPU utilization from a pod annotation.**
@@ -203,12 +190,8 @@ kubectl get nodes -o jsonpath='{.items[*].status.capacity.amd\.com/gpu}'
 
 **`kind` errors creating the cluster on macOS.** Check Docker Desktop's resource allocation — kind + monitoring needs ~4 GiB and 2 CPUs minimum.
 
-**`http: server gave HTTP response to HTTPS client` on `sims gpu load-image`.** Your Docker daemon needs `localhost:5001` in `insecure-registries`. Add it (Docker Desktop → Settings → Docker Engine; or `/etc/docker/daemon.json` on Linux) and restart Docker. Workaround that avoids the config change: `docker tag X localhost:5001/X && kind load docker-image localhost:5001/X --name sims-<vendor>`.
+**Grafana dashboard panels are empty.** Make sure (a) the `instance` template variable at the top of the dashboard is set to **All** — fresh browsers sometimes load with nothing selected; (b) `kubectl get pods -n gpu-operator` shows no `ImagePullBackOff` — operator images are pulled from GHCR; (c) for the AMD dashboard, the pod that's supposed to drive the panel actually has the `sims.io/simulated-gpu-utilization` annotation.
 
-**Grafana dashboard panels are empty.** Make sure (a) the `instance` template variable at the top of the dashboard is set to **All** — fresh browsers sometimes load with nothing selected; (b) any operator images you needed to push via `sims gpu load-image` are actually loaded (`kubectl get pods -n gpu-operator` should show no `ImagePullBackOff`); (c) for the AMD dashboard, the pod that's supposed to drive the panel actually has the `sims.io/simulated-gpu-utilization` annotation.
+**Pod stays in `ImagePullBackOff`.** Operator images are published to `ghcr.io/alessandro-festa/...`. Check that the GHCR packages are public and the image tag matches the chart's `values.yaml`.
 
-**AMD pod stays in `ImagePullBackOff`.** The fake-rocm-gpu-operator image lives in your local registry, not on docker.io — you have to `make -C operators/fake-rocm-gpu-operator image` and `sims gpu load-image fake-rocm-gpu-operator:dev` after creating the cluster.
-
-**NVIDIA temperature/power/SM-clock panels are empty.** Same as above for `fake-dcgm-extras` — build + load it: `make -C operators/fake-dcgm-extras image && sims gpu load-image fake-dcgm-extras:dev`.
-
-**Side-by-side `sims-amd` + `sims-nvidia` cluster create errors.** Both clusters share the same `kind-registry` container. The second create is harmless and succeeds end-to-end — earlier "already connected to network kind" errors were fixed in PR #90.
+**NVIDIA temperature/power/SM-clock panels are empty.** The `fake-dcgm-extras` sidecar image is pulled from GHCR. Verify the pod is Running: `kubectl get pods -n gpu-operator -l app=dcgm-extras-exporter`.

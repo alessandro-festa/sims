@@ -38,7 +38,7 @@ curl localhost:9401/metrics | grep DCGM_FI_DEV_GPU_TEMP
 
 ```bash
 sims gpu create --vendor nvidia --monitoring         # chart deploys the sidecar DS
-sims gpu load-image fake-dcgm-extras:dev             # push to local registry
+# Image pulled from ghcr.io/alessandro-festa/fake-dcgm-extras automatically.
 # Grafana DCGM dashboard now has temperature, power, SM clock panels populated.
 ```
 

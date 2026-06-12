@@ -8,7 +8,7 @@ cd sims
 go mod download
 go build ./...
 go test ./...
-go build -o bin/sims ./cmd/sims && ./bin/sims gpu doctor   # validates Docker, insecure-registries, GHCR
+go build -o bin/sims ./cmd/sims && ./bin/sims gpu doctor   # validates Docker, kind, GHCR
 ```
 
 ## Repository layout
@@ -18,7 +18,7 @@ sims/
   cmd/sims/main.go             # cobra entrypoint
   pkg/
     cli/                       # cobra command implementations
-    cluster/                   # kind orchestration + local registry lifecycle
+    cluster/                   # kind orchestration
     helm/                      # helm SDK wrapper (install/upgrade/uninstall + EnsureDependencies)
     kube/                      # client-go helpers: wait-for-capacity / -deployment, namespace, vendor detection
     config/                    # per-vendor kind config templating
@@ -64,8 +64,8 @@ Each phase should land as a single PR that:
 
 The fake operator lives in-monorepo (`operators/fake-rocm-gpu-operator/`) until Phase 6, at which point we may extract it to its own repo for an independent release cadence. While in-monorepo:
 
-- Build the image with `docker build -t localhost:5001/fake-rocm-gpu-operator:dev operators/fake-rocm-gpu-operator/`.
-- Load it into the cluster via `./bin/sims gpu load-image localhost:5001/fake-rocm-gpu-operator:dev`.
+- Published images are pulled from GHCR (`ghcr.io/alessandro-festa/fake-rocm-gpu-operator:<tag>`).
+- For local development, build with `make -C operators/fake-rocm-gpu-operator image` and load into kind: `kind load docker-image fake-rocm-gpu-operator:dev --name sims-amd`.
 - Helm dependency in `charts/sims-amd/Chart.yaml` points at `file://../../operators/fake-rocm-gpu-operator/chart` during dev; switches to OCI once published.
 
 ## Releasing

@@ -50,7 +50,7 @@ type check struct {
 func newGPUDoctorCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "doctor",
-		Short: "Run pre-flight environment checks (Docker, registry, network)",
+		Short: "Run pre-flight environment checks (Docker, kind, GHCR)",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runDoctor(cmd.Context(), cmd.OutOrStdout())
 		},
@@ -101,8 +101,6 @@ func runDoctor(ctx context.Context, stdout io.Writer) error {
 func defaultChecks() []check {
 	return []check{
 		{name: "docker daemon", severity: sevCritical, run: checkDockerDaemon},
-		{name: "docker insecure-registries (localhost:5001)", severity: sevCritical, run: checkInsecureRegistry},
-		{name: "kind-registry container", severity: sevWarn, run: checkRegistryContainer},
 		{name: "sims clusters", severity: sevInfo, run: checkSimsClusters},
 		{name: "ghcr.io reachable", severity: sevWarn, run: checkGHCR},
 	}
@@ -114,31 +112,6 @@ func checkDockerDaemon(ctx context.Context) (bool, string, string) {
 		return false, "start Docker Desktop, or `systemctl start docker` on Linux", ""
 	}
 	return true, "", "server " + strings.TrimSpace(string(out))
-}
-
-func checkInsecureRegistry(ctx context.Context) (bool, string, string) {
-	out, err := exec.CommandContext(ctx, "docker", "info", "--format", "{{json .RegistryConfig}}").Output()
-	if err != nil {
-		return false, "Docker daemon not reachable — see the previous check", ""
-	}
-	text := string(out)
-	for _, needle := range []string{"localhost:5001", "127.0.0.1:5001"} {
-		if strings.Contains(text, needle) {
-			return true, "", "found " + needle
-		}
-	}
-	return false, `Docker Desktop → Settings → Docker Engine → add "insecure-registries": ["localhost:5001"] and Apply & restart`, ""
-}
-
-func checkRegistryContainer(ctx context.Context) (bool, string, string) {
-	out, err := exec.CommandContext(ctx, "docker", "inspect", "-f", "{{.State.Running}}", cluster.DefaultRegistryName).Output()
-	if err != nil {
-		return false, "first `sims gpu create` will start it", "not present"
-	}
-	if strings.TrimSpace(string(out)) != "true" {
-		return false, "container exists but is stopped; `docker start " + cluster.DefaultRegistryName + "`", "stopped"
-	}
-	return true, "", "running"
 }
 
 func checkSimsClusters(ctx context.Context) (bool, string, string) {

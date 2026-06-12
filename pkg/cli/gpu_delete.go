@@ -82,11 +82,6 @@ func runDelete(ctx context.Context, stdout io.Writer, name string) error {
 		return err
 	}
 
-	log.Info("checking if local registry can be stopped")
-	if err := cluster.MaybeStopRegistry(ctx); err != nil {
-		log.Warn("registry stop failed (cluster delete still succeeded)", "err", err)
-	}
-
 	_, _ = fmt.Fprintf(stdout, "cluster %q deleted; kubeconfig context kind-%s removed\n", name, name)
 	return nil
 }

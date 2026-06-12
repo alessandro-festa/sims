@@ -23,9 +23,8 @@ import (
 )
 
 const (
-	amdMetricSentinel    = "amd_gpu_junction_temperature"
-	amdImageBuildTimeout = 5 * time.Minute
-	amdRunningTimeout    = 2 * time.Minute
+	amdMetricSentinel = "amd_gpu_junction_temperature"
+	amdRunningTimeout = 2 * time.Minute
 	amdAnnotationTimeout = 30 * time.Second
 	amdAnnotationKey     = "sims.io/assigned-gpus"
 	amdHelmUpgradeWait   = 2 * time.Minute
@@ -47,14 +46,7 @@ func TestAMD_EndToEnd(t *testing.T) {
 	defer cancel()
 	t.Cleanup(func() { cleanupCluster(t, amdClusterName) })
 
-	// 1. Build the operator image. The NVIDIA path pulls from ghcr.io;
-	//    the AMD path hosts its own image because we built it ourselves.
-	t.Log("building fake-rocm-gpu-operator image")
-	if err := buildOperatorImage(ctx); err != nil {
-		t.Fatalf("build operator image: %v", err)
-	}
-
-	// 2. Create the cluster (also brings up the local registry).
+	// 1. Create the cluster (operator image pulled from GHCR).
 	t.Log("creating sims-amd cluster (this takes ~1-2 minutes)")
 	createCtx, cancelCreate := context.WithTimeout(ctx, createTimeout)
 	defer cancelCreate()
@@ -63,14 +55,7 @@ func TestAMD_EndToEnd(t *testing.T) {
 		t.Fatalf("sims gpu create failed: %v\nstderr:\n%s", err, stderr)
 	}
 
-	// 3. Push the operator image into the local registry so the DaemonSet
-	//    can pull it. (Until this runs the DS is in ImagePullBackOff;
-	//    capacity-patcher uses bitnami/kubectl so it's unaffected.)
-	if _, stderr, err := runSims(ctx, "gpu", "load-image", "fake-rocm-gpu-operator:dev"); err != nil {
-		t.Fatalf("sims gpu load-image failed: %v\nstderr:\n%s", err, stderr)
-	}
-
-	// 4. Verify capacity advertised on workers.
+	// 2. Verify capacity advertised on workers.
 	kc, err := newKubeconfig(ctx, amdClusterName)
 	if err != nil {
 		t.Fatalf("fetch kubeconfig: %v", err)
@@ -78,7 +63,7 @@ func TestAMD_EndToEnd(t *testing.T) {
 	cs := mustClientset(t, kc)
 	assertAMDWorkerCapacity(t, ctx, cs, 2)
 
-	// 5. Apply the sample pod and verify it Schedules onto a node.
+	// 3. Apply the sample pod and verify it Schedules onto a node.
 	sampleYAML, sampleStderr, err := runSims(ctx, "gpu", "sample", "--vendor", "amd")
 	if err != nil {
 		t.Fatalf("sims gpu sample failed: %v\nstderr:\n%s", err, sampleStderr)
@@ -95,7 +80,7 @@ func TestAMD_EndToEnd(t *testing.T) {
 		t.Fatalf("sample pod never Scheduled: %v", err)
 	}
 
-	// 6. Phase 4: pod actually Runs (kubelet allocates amd.com/gpu via
+	// 4. Phase 4: pod actually Runs (kubelet allocates amd.com/gpu via
 	//    the device-plugin) and the annotator stamps sims.io/assigned-gpus.
 	t.Log("waiting for sample pod to reach Running (Phase 4: device-plugin allocates amd.com/gpu)")
 	if err := waitForRunning(ctx, cs, sampleNamespace, amdSamplePodName, amdRunningTimeout); err != nil {
@@ -112,7 +97,7 @@ func TestAMD_EndToEnd(t *testing.T) {
 		t.Errorf("annotation %s = %q, want comma-list of gpu-N", amdAnnotationKey, val)
 	}
 
-	// 7. Scale up via helm upgrade — proves the device-plugin is in the
+	// 5. Scale up via helm upgrade — proves the device-plugin is in the
 	//    loop, not a static install-time Job.
 	t.Log("helm upgrade sims-amd to gpusPerNode=4")
 	if err := helmUpgradeAMDGpus(ctx, kc, 4); err != nil {
@@ -123,7 +108,7 @@ func TestAMD_EndToEnd(t *testing.T) {
 		t.Fatalf("capacity never bumped to 4: %v", err)
 	}
 
-	// 8. Delete the cluster cleanly.
+	// 6. Delete the cluster cleanly.
 	if _, stderr, err := runSims(ctx, "gpu", "delete", "--name", amdClusterName); err != nil {
 		t.Fatalf("sims gpu delete failed: %v\nstderr:\n%s", err, stderr)
 	}
@@ -149,21 +134,12 @@ func TestAMD_Monitoring_EndToEnd(t *testing.T) {
 	defer cancel()
 	t.Cleanup(func() { cleanupCluster(t, amdClusterName) })
 
-	t.Log("building fake-rocm-gpu-operator image")
-	if err := buildOperatorImage(ctx); err != nil {
-		t.Fatalf("build operator image: %v", err)
-	}
-
 	t.Log("creating sims-amd cluster with --monitoring (this takes 3-5 min)")
 	createCtx, cancelCreate := context.WithTimeout(ctx, createMonTimeout)
 	defer cancelCreate()
 	if _, stderr, err := runSims(createCtx, "gpu", "create",
 		"--vendor", "amd", "--workers", "2", "--gpus-per-worker", "2", "--monitoring"); err != nil {
 		t.Fatalf("sims gpu create --monitoring failed: %v\nstderr:\n%s", err, stderr)
-	}
-
-	if _, stderr, err := runSims(ctx, "gpu", "load-image", "fake-rocm-gpu-operator:dev"); err != nil {
-		t.Fatalf("sims gpu load-image failed: %v\nstderr:\n%s", err, stderr)
 	}
 
 	kc, err := newKubeconfig(ctx, amdClusterName)
@@ -231,17 +207,6 @@ func TestAMD_Monitoring_EndToEnd(t *testing.T) {
 	if err := waitForPrometheusValueInRange(ctx, cs, q, 70, 90, 2*time.Minute); err != nil {
 		t.Errorf("annotation didn't drive gauge value: %v", err)
 	}
-}
-
-// buildOperatorImage runs the operator's `make image` target, which docker
-// buildx-builds + loads fake-rocm-gpu-operator:dev into the local daemon.
-func buildOperatorImage(ctx context.Context) error {
-	imgCtx, cancel := context.WithTimeout(ctx, amdImageBuildTimeout)
-	defer cancel()
-	cmd := exec.CommandContext(imgCtx, "make", "-C", "../operators/fake-rocm-gpu-operator", "image")
-	cmd.Stdout = os.Stderr
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
 }
 
 // helmUpgradeAMDGpus runs `helm upgrade --reuse-values --set gpusPerNode=N

@@ -28,11 +28,6 @@ func TestRender_Golden(t *testing.T) {
 			opts:   Options{Vendor: VendorNVIDIA, Workers: 4, Taint: true},
 			golden: "nvidia_taint_4workers.yaml",
 		},
-		{
-			name:   "amd_custom_registry",
-			opts:   Options{Vendor: VendorAMD, Name: "amd-test", RegistryName: "my-reg", RegistryPort: 5555},
-			golden: "amd_custom_registry.yaml",
-		},
 	}
 
 	for _, tc := range cases {

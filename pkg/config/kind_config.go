@@ -14,22 +14,18 @@ const (
 
 // Defaults applied by Render when the corresponding Options field is its zero value.
 const (
-	DefaultWorkers      = 2
-	DefaultK8sVersion   = "v1.31.0"
-	DefaultRegistryName = "kind-registry"
-	DefaultRegistryPort = 5001
+	DefaultWorkers    = 2
+	DefaultK8sVersion = "v1.31.0"
 )
 
 // Options is the input to Render. Zero values are replaced with the Default* constants above,
 // except for Vendor which is required.
 type Options struct {
-	Vendor       string
-	Name         string
-	Workers      int
-	K8sVersion   string
-	Taint        bool
-	RegistryName string
-	RegistryPort int
+	Vendor     string
+	Name       string
+	Workers    int
+	K8sVersion string
+	Taint      bool
 }
 
 // Render returns the kind cluster YAML configured for the given Options.
@@ -41,8 +37,6 @@ type Options struct {
 //   - Labels workers with sims.io/gpu-vendor=<vendor> and a vendor-specific
 //     "GPU present" label so node selectors can target them.
 //   - When Options.Taint is set, adds <vendor>.com/gpu=present:NoSchedule on workers.
-//   - Configures containerd to mirror localhost:<RegistryPort> to a registry
-//     container reachable inside the kind network as <RegistryName>:<RegistryPort>.
 //   - For the NVIDIA vendor, enables the DynamicResourceAllocation feature gate and
 //     the resource.k8s.io/v1alpha3 runtime config (required by fake-gpu-operator's
 //     DRA plugin on K8s ≥1.31; harmless on older versions but the DRA plugin pods
@@ -66,10 +60,8 @@ type templateData struct {
 	Vendor        string
 	PresentLabel  string
 	ExtraLabels   map[string]string
-	Taint         bool
-	RegistryName  string
-	RegistryPort  int
-	EnableDRA     bool
+	Taint     bool
+	EnableDRA bool
 }
 
 func buildTemplateData(o Options) (templateData, error) {
@@ -83,12 +75,6 @@ func buildTemplateData(o Options) (templateData, error) {
 	}
 	if o.K8sVersion == "" {
 		o.K8sVersion = DefaultK8sVersion
-	}
-	if o.RegistryName == "" {
-		o.RegistryName = DefaultRegistryName
-	}
-	if o.RegistryPort == 0 {
-		o.RegistryPort = DefaultRegistryPort
 	}
 	if o.Name == "" {
 		o.Name = "sims-" + o.Vendor
@@ -120,10 +106,8 @@ func buildTemplateData(o Options) (templateData, error) {
 		Vendor:        o.Vendor,
 		PresentLabel:  present,
 		ExtraLabels:   extraLabels,
-		Taint:         o.Taint,
-		RegistryName:  o.RegistryName,
-		RegistryPort:  o.RegistryPort,
-		EnableDRA:     o.Vendor == VendorNVIDIA,
+		Taint:     o.Taint,
+		EnableDRA: o.Vendor == VendorNVIDIA,
 	}, nil
 }
 
@@ -149,10 +133,6 @@ nodes:
         effect: NoSchedule
 {{- end }}
 {{- end }}
-containerdConfigPatches:
-  - |-
-    [plugins."io.containerd.grpc.v1.cri".registry]
-      config_path = "/etc/containerd/certs.d"
 {{- if .EnableDRA }}
 featureGates:
   DynamicResourceAllocation: true
