@@ -26,22 +26,24 @@ type worldState struct {
 // publishes the resulting worldState. The exporter's Sampler reads
 // state via Snapshot() — fast, no blocking on the apiserver.
 type cache struct {
-	cs        kubernetes.Interface
-	namespace string
-	hostname  string
-	log       *slog.Logger
+	cs          kubernetes.Interface
+	namespace   string
+	hostname    string
+	log         *slog.Logger
+	defaultUtil string
 
 	mu    sync.RWMutex
 	state *worldState
 }
 
-func newCache(cs kubernetes.Interface, namespace, hostname string, log *slog.Logger) *cache {
+func newCache(cs kubernetes.Interface, namespace, hostname string, log *slog.Logger, defaultUtil string) *cache {
 	return &cache{
-		cs:        cs,
-		namespace: namespace,
-		hostname:  hostname,
-		log:       log,
-		state:     &worldState{topology: topology.Empty(), podRanges: map[string]annotations.Range{}},
+		cs:          cs,
+		namespace:   namespace,
+		hostname:    hostname,
+		log:         log,
+		defaultUtil: defaultUtil,
+		state:       &worldState{topology: topology.Empty(), podRanges: map[string]annotations.Range{}},
 	}
 }
 
@@ -75,10 +77,10 @@ func (c *cache) Refresh(ctx context.Context) {
 			c.log.Debug("pod fetch failed; will retry next tick", "namespace", a.PodNamespace, "pod", a.PodName, "err", err)
 			continue
 		}
-		r, err := annotations.ParseUtilization(pod.Annotations[annotations.UtilizationAnnotation])
+		r, err := annotations.ParseUtilizationWithDefault(pod.Annotations[annotations.UtilizationAnnotation], c.defaultUtil)
 		if err != nil {
 			c.log.Debug("invalid utilization annotation; falling back to default", "namespace", a.PodNamespace, "pod", a.PodName, "err", err)
-			r, _ = annotations.ParseUtilization("") // never fails on empty
+			r, _ = annotations.ParseUtilizationWithDefault("", c.defaultUtil)
 		}
 		podRanges[key] = r
 	}

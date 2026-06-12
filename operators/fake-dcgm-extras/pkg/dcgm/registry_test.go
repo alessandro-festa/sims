@@ -48,7 +48,7 @@ func TestCollector_EmitsAllNineFamilies(t *testing.T) {
 func TestCollector_LabelsPresentOnAllMetrics(t *testing.T) {
 	c := New(SamplerFunc(func(_ context.Context) []Snapshot {
 		return []Snapshot{{
-			GPU: "1", UUID: "GPU-x-1", Device: "nvidia1", ModelName: "Tesla T4", Hostname: "host-a",
+			GPU: "1", UUID: "GPU-x-1", Device: "nvidia1", ModelName: "Tesla T4", MigProfile: "1g.10gb", Hostname: "host-a",
 			Pod: "foo", Namespace: "team-x", Container: "payload",
 			GPUTemp: 60, PowerUsage: 100, SMClock: 1600, MemClock: 5500,
 		}}
@@ -58,7 +58,7 @@ func TestCollector_LabelsPresentOnAllMetrics(t *testing.T) {
 		t.Fatalf("Gather: %v", err)
 	}
 	want := map[string]string{
-		"gpu": "1", "UUID": "GPU-x-1", "device": "nvidia1", "modelName": "Tesla T4", "Hostname": "host-a",
+		"gpu": "1", "UUID": "GPU-x-1", "device": "nvidia1", "modelName": "Tesla T4", "migProfile": "1g.10gb", "Hostname": "host-a",
 		"pod": "foo", "namespace": "team-x", "container": "payload",
 	}
 	for _, mf := range mfs {

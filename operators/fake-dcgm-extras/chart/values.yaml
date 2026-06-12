@@ -12,6 +12,7 @@ image:
 # Per-node fake GPU slot count + product label.
 gpusPerNode: 2
 productName: "Tesla T4"
+migProfile: ""
 
 # DaemonSet placement. Matches fake-gpu-operator's dcgm-exporter
 # nodeSelector convention (run-ai sets this label via its values).

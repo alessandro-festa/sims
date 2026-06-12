@@ -37,6 +37,7 @@ spec:
             - --product-name={{ .Values.productName }}
             - --gpu-memory-bytes={{ int64 .Values.gpuMemoryBytes }}
             - --resource-name={{ .Values.devicePlugin.resourceName }}
+            - --default-utilization={{ .Values.defaultUtilization }}
             - --default-node-selector={{ join "," (toStrings (keys .Values.nodeSelector | sortAlpha)) }}={{ index .Values.nodeSelector (first (keys .Values.nodeSelector | sortAlpha)) }}
           ports:
             - name: metrics

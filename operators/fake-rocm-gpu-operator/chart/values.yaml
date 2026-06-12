@@ -48,6 +48,10 @@ devicePlugin:
 # logical partitions — useful for tooling that exercises AMD's MI300X
 # partition workflow against sims. The default DeviceConfig CR forwards
 # these values; edit the CR directly to switch modes at runtime.
+# Default simulated utilization range for pods without a
+# sims.io/simulated-gpu-utilization annotation.
+defaultUtilization: "5-15"
+
 computePartition:
   mode: spx     # spx | cpx
   count: 1      # 1..8; ignored when mode=spx

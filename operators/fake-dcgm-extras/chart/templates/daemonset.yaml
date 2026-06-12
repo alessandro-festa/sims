@@ -30,6 +30,9 @@ spec:
             - --listen=:{{ .Values.service.port }}
             - --gpus-per-node={{ .Values.gpusPerNode }}
             - --product-name={{ .Values.productName }}
+            {{- if .Values.migProfile }}
+            - --mig-profile={{ .Values.migProfile }}
+            {{- end }}
           env:
             - name: NODE_NAME
               valueFrom:

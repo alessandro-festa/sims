@@ -25,6 +25,7 @@ func Run(ctx context.Context, args []string, stderr io.Writer) error {
 	listen := fs.String("listen", ":9401", "Address the metrics HTTP server binds to.")
 	gpus := fs.Int("gpus-per-node", 2, "Number of fake GPU slots to expose for this node.")
 	product := fs.String("product-name", "Tesla T4", "GPU model name surfaced via modelName label.")
+	migProfile := fs.String("mig-profile", "", "MIG profile label (e.g. 1g.10gb). Empty when MIG is not configured.")
 	refresh := fs.Duration("refresh-interval", 5*time.Second, "How often to re-list this node's GPU-consuming pods.")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -47,7 +48,7 @@ func Run(ctx context.Context, args []string, stderr io.Writer) error {
 		hostname = hn
 	}
 
-	gpuList := buildGPUs(hostname, *product, *gpus)
+	gpuList := buildGPUs(hostname, *product, *migProfile, *gpus)
 	sampler := buildSamplerOrIdle(ctx, log, gpuList, hostname, *refresh)
 	collector := dcgm.New(sampler)
 
@@ -66,7 +67,7 @@ func Run(ctx context.Context, args []string, stderr io.Writer) error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		_, _ = fmt.Fprintf(stderr, "fake-dcgm-extras: listening on %s, hostname=%s, gpus=%d, product=%q\n", *listen, hostname, *gpus, *product)
+		_, _ = fmt.Fprintf(stderr, "fake-dcgm-extras: listening on %s, hostname=%s, gpus=%d, product=%q, mig=%q\n", *listen, hostname, *gpus, *product, *migProfile)
 		errCh <- srv.ListenAndServe()
 	}()
 
@@ -103,7 +104,7 @@ func idleOnly(gpus []gpuIdentity, hostname string) dcgm.Sampler {
 		out := make([]dcgm.Snapshot, 0, len(gpus))
 		for _, g := range gpus {
 			s := dcgm.Snapshot{
-				GPU: fmt.Sprint(g.Index), UUID: g.UUID, Device: g.Device, ModelName: g.ModelName, Hostname: hostname,
+				GPU: fmt.Sprint(g.Index), UUID: g.UUID, Device: g.Device, ModelName: g.ModelName, MigProfile: g.MigProfile, Hostname: hostname,
 				MemClock: memClockMHz,
 			}
 			fillIdle(&s)

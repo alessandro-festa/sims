@@ -37,6 +37,16 @@ func TestParseUtilization_EmptyDefaultsTo5_15(t *testing.T) {
 	}
 }
 
+func TestParseUtilizationWithDefault_CustomFallback(t *testing.T) {
+	got, err := ParseUtilizationWithDefault("", "40-60")
+	if err != nil {
+		t.Fatalf("ParseUtilizationWithDefault(empty, 40-60): %v", err)
+	}
+	if got.Low != 40 || got.High != 60 {
+		t.Errorf("custom default = %v, want {40, 60}", got)
+	}
+}
+
 func TestParseUtilization_Invalid(t *testing.T) {
 	cases := []string{"100", "abc-def", "10-5", "-5-10", "0-150"}
 	for _, c := range cases {

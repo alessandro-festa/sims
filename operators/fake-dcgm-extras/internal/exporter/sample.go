@@ -30,20 +30,22 @@ const (
 
 // gpuIdentity is one fake GPU slot on the node. Built once at startup.
 type gpuIdentity struct {
-	Index     int    // 0..N-1
-	UUID      string
-	Device    string // "nvidia0"
-	ModelName string
+	Index      int    // 0..N-1
+	UUID       string
+	Device     string // "nvidia0"
+	ModelName  string
+	MigProfile string
 }
 
-func buildGPUs(hostname, productName string, n int) []gpuIdentity {
+func buildGPUs(hostname, productName, migProfile string, n int) []gpuIdentity {
 	out := make([]gpuIdentity, n)
 	for i := range n {
 		out[i] = gpuIdentity{
-			Index:     i,
-			UUID:      fmt.Sprintf("GPU-sim-%s-%02d", hostname, i),
-			Device:    fmt.Sprintf("nvidia%d", i),
-			ModelName: productName,
+			Index:      i,
+			UUID:       fmt.Sprintf("GPU-sim-%s-%02d", hostname, i),
+			Device:     fmt.Sprintf("nvidia%d", i),
+			ModelName:  productName,
+			MigProfile: migProfile,
 		}
 	}
 	return out
@@ -63,12 +65,13 @@ func buildSampler(c *cache, gpus []gpuIdentity, hostname string) dcgm.Sampler {
 		out := make([]dcgm.Snapshot, 0, len(gpus))
 		for i, g := range gpus {
 			snap := dcgm.Snapshot{
-				GPU:       strconv.Itoa(g.Index),
-				UUID:      g.UUID,
-				Device:    g.Device,
-				ModelName: g.ModelName,
-				Hostname:  hostname,
-				MemClock:  memClockMHz,
+				GPU:        strconv.Itoa(g.Index),
+				UUID:       g.UUID,
+				Device:     g.Device,
+				ModelName:  g.ModelName,
+				MigProfile: g.MigProfile,
+				Hostname:   hostname,
+				MemClock:   memClockMHz,
 			}
 			if i < len(assignments) {
 				a := assignments[i]

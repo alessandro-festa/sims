@@ -19,6 +19,7 @@ import (
 // for idle GPUs.
 var labelNames = []string{
 	"gpu", "UUID", "device", "modelName", "Hostname",
+	"migProfile",
 	"pod", "namespace", "container",
 }
 
@@ -30,8 +31,9 @@ type Snapshot struct {
 	GPU       string // "0", "1", ...
 	UUID      string // "GPU-<random>" (deterministic for stability)
 	Device    string // "nvidia0", "nvidia1", ...
-	ModelName string // "Tesla T4"
-	Hostname  string
+	ModelName  string // "Tesla T4"
+	MigProfile string // "1g.10gb" (empty when MIG is not configured)
+	Hostname   string
 
 	// Assignment (empty for idle GPUs)
 	Pod       string
@@ -116,7 +118,7 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 // translates each Snapshot into one Metric per gauge.
 func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	for _, s := range c.sampler.Sample(context.Background()) {
-		labels := []string{s.GPU, s.UUID, s.Device, s.ModelName, s.Hostname, s.Pod, s.Namespace, s.Container}
+		labels := []string{s.GPU, s.UUID, s.Device, s.ModelName, s.Hostname, s.MigProfile, s.Pod, s.Namespace, s.Container}
 		ch <- prometheus.MustNewConstMetric(c.gpuTemp, prometheus.GaugeValue, s.GPUTemp, labels...)
 		ch <- prometheus.MustNewConstMetric(c.powerUsage, prometheus.GaugeValue, s.PowerUsage, labels...)
 		ch <- prometheus.MustNewConstMetric(c.smClock, prometheus.GaugeValue, s.SMClock, labels...)

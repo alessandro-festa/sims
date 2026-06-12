@@ -19,6 +19,7 @@ fake-rocm-gpu-operator:
   gpusPerNode: 2
   productName: MI300X
   gpuMemoryBytes: 206158430208
+  defaultUtilization: "5-15"
   image:
     repository: ghcr.io/alessandro-festa/fake-rocm-gpu-operator
     tag: "0.1.0"

@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
+	"github.com/alessandro-festa/sims/operators/fake-rocm-gpu-operator/pkg/annotations"
 	"github.com/alessandro-festa/sims/operators/fake-rocm-gpu-operator/pkg/metrics"
 	"github.com/alessandro-festa/sims/operators/fake-rocm-gpu-operator/pkg/simulate"
 )
@@ -46,6 +47,7 @@ func Run(ctx context.Context, args []string, stderr io.Writer) error {
 	refresh := fs.Duration("refresh-interval", 5*time.Second, "How often to re-read topology + pod annotations.")
 	partitionMode := fs.String("partition-mode", simulate.PartitionSPX, "CPX/SPX emulation mode: spx (1 logical per physical, default) or cpx (--partition-count logical per physical).")
 	partitionCount := fs.Int("partition-count", 1, "Number of CPX partitions per physical GPU when --partition-mode=cpx.")
+	defaultUtil := fs.String("default-utilization", annotations.DefaultUtilizationRange, "Default utilization range (e.g. 5-15) for pods without a sims.io/simulated-gpu-utilization annotation.")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
@@ -69,7 +71,7 @@ func Run(ctx context.Context, args []string, stderr io.Writer) error {
 
 	gpuList := simulate.BuildGPUs(hostname, *product, *memBytes, *gpus, *partitionMode, *partitionCount)
 
-	sampler := buildSampler(ctx, log, gpuList, hostname, *namespace, *refresh)
+	sampler := buildSampler(ctx, log, gpuList, hostname, *namespace, *refresh, *defaultUtil)
 	collector := metrics.New(sampler)
 
 	mux := http.NewServeMux()
@@ -109,13 +111,13 @@ func Run(ctx context.Context, args []string, stderr io.Writer) error {
 // (in-cluster client succeeded) or always reports idle (no client). The
 // fallback keeps the exporter useful for local smoke tests outside a
 // kind cluster.
-func buildSampler(ctx context.Context, log *slog.Logger, gpus []simulate.GPU, hostname, namespace string, refresh time.Duration) metrics.Sampler {
+func buildSampler(ctx context.Context, log *slog.Logger, gpus []simulate.GPU, hostname, namespace string, refresh time.Duration, defaultUtil string) metrics.Sampler {
 	cs, err := newInClusterClientset()
 	if err != nil {
 		log.Warn("in-cluster Kubernetes client unavailable; serving idle baseline for all GPUs", "err", err)
 		return idleSampler(gpus, hostname)
 	}
-	c := newCache(cs, namespace, hostname, log)
+	c := newCache(cs, namespace, hostname, log, defaultUtil)
 	go c.Run(ctx, refresh)
 	return topologySampler(c, gpus, hostname)
 }
