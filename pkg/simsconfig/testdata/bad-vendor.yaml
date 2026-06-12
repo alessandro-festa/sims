@@ -1,0 +1,5 @@
+apiVersion: sims.io/v1
+kind: SimsConfig
+vendor: intel
+gpu:
+  family: Gaudi3
