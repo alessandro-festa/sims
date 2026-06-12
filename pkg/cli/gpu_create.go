@@ -137,7 +137,7 @@ func runCreate(ctx context.Context, stdout io.Writer, o *createOpts) error {
 
 	monitoringMsg := ""
 	if o.withMonitoring {
-		monitoringMsg = "\nmonitoring: kubectl -n " + monitoringNamespace + " port-forward svc/" + monitoringRelease + "-grafana 3000:80"
+		monitoringMsg = "\nmonitoring: run `sims gpu dashboard` to open Grafana"
 	}
 	_, _ = fmt.Fprintf(stdout,
 		"cluster %q ready — %d workers × %d %s\nkubeconfig context: kind-%s%s\n",

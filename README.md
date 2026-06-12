@@ -29,7 +29,7 @@ sims gpu create --vendor amd    --monitoring
 
 **End-to-end validated** on 2026-06-09 against real vendor containers (`rocm/dev-ubuntu-22.04:6.0` for AMD, `nvidia/cuda:12.4.0-base-ubuntu22.04` for NVIDIA). Pods schedule + reach Running; ROCm / CUDA tools fail authentically inside (no real GPU); Grafana panels show per-pod metrics driven by `sims.io/simulated-gpu-utilization` annotations. See [docs/quickstart.md](docs/quickstart.md#real-vendor-container-demo) for the demo flow.
 
-**Commands:** `sims gpu create --vendor {nvidia|amd} [--monitoring]`, `sims gpu sample --vendor {nvidia|amd}`, `sims gpu status`, `sims gpu dashboard [--name N] [--stop]`, `sims gpu monitoring enable|disable`, `sims gpu delete`, `sims gpu doctor`.
+**Commands:** `sims gpu create --vendor {nvidia|amd} [--monitoring]`, `sims gpu list`, `sims gpu sample --vendor {nvidia|amd}`, `sims gpu status`, `sims gpu dashboard [--name N] [--stop]`, `sims gpu monitoring enable|disable`, `sims gpu delete`, `sims gpu doctor`.
 
 See [docs/architecture.md](docs/architecture.md) for the full design.
 

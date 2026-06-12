@@ -10,6 +10,7 @@ func newGPUCmd() *cobra.Command {
 	cmd.AddCommand(
 		newGPUCreateCmd(),
 		newGPUDeleteCmd(),
+		newGPUListCmd(),
 		newGPUStatusCmd(),
 		newGPUDashboardCmd(),
 		newGPUSampleCmd(),
