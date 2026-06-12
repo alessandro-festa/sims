@@ -28,6 +28,9 @@ func Parse(data []byte) (*SimsConfig, error) {
 		return nil, err
 	}
 	ApplyFamilyDefaults(&cfg)
+	if cfg.TaintedWorkers > cfg.Workers {
+		return nil, fmt.Errorf("taintedWorkers (%d) must be <= workers (%d)", cfg.TaintedWorkers, cfg.Workers)
+	}
 	return &cfg, nil
 }
 
@@ -75,6 +78,10 @@ func validate(cfg *SimsConfig) error {
 		if err := validateUtilRange(u); err != nil {
 			return fmt.Errorf("workload.defaultUtilization: %w", err)
 		}
+	}
+
+	if cfg.TaintedWorkers < 0 {
+		return fmt.Errorf("taintedWorkers must be >= 0, got %d", cfg.TaintedWorkers)
 	}
 
 	return nil

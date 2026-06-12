@@ -45,7 +45,7 @@ type createOpts struct {
 	gpusPerWorker  int
 	k8sVersion     string
 	withMonitoring bool
-	taint          bool
+	taintedWorkers int
 	configPath     string
 
 	productName    string
@@ -75,7 +75,7 @@ func newGPUCreateCmd() *cobra.Command {
 	cmd.Flags().IntVar(&o.gpusPerWorker, "gpus-per-worker", 2, "Fake GPUs advertised per worker")
 	cmd.Flags().StringVar(&o.k8sVersion, "k8s-version", "v1.31.0", "Kubernetes version for kind nodes")
 	cmd.Flags().BoolVar(&o.withMonitoring, "monitoring", false, "Install kube-prometheus-stack + vendor dashboard")
-	cmd.Flags().BoolVar(&o.taint, "taint", false, "Add <vendor>.com/gpu=present:NoSchedule taint to worker nodes")
+	cmd.Flags().IntVar(&o.taintedWorkers, "tainted-workers", 0, "Taint first N workers with <vendor>.com/gpu=present:NoSchedule (0 = none)")
 	return cmd
 }
 
@@ -106,8 +106,8 @@ func applyConfig(cmd *cobra.Command, o *createOpts) error {
 	if !cmd.Flags().Changed("k8s-version") && cfg.K8sVersion != "" {
 		o.k8sVersion = cfg.K8sVersion
 	}
-	if !cmd.Flags().Changed("taint") {
-		o.taint = cfg.Taint
+	if !cmd.Flags().Changed("tainted-workers") {
+		o.taintedWorkers = cfg.TaintedWorkers
 	}
 	if !cmd.Flags().Changed("monitoring") {
 		o.withMonitoring = cfg.Monitoring
@@ -138,11 +138,11 @@ func runCreate(ctx context.Context, stdout io.Writer, o *createOpts) error {
 	}
 
 	raw, err := config.Render(config.Options{
-		Vendor:     o.vendor,
-		Name:       name,
-		Workers:    o.workers,
-		K8sVersion: o.k8sVersion,
-		Taint:      o.taint,
+		Vendor:         o.vendor,
+		Name:           name,
+		Workers:        o.workers,
+		K8sVersion:     o.k8sVersion,
+		TaintedWorkers: o.taintedWorkers,
 	})
 	if err != nil {
 		return err
@@ -318,7 +318,7 @@ func buildNVIDIAValues(o *createOpts) map[string]any {
 	if o.migProfile != "" {
 		dcgmExtras["migProfile"] = o.migProfile
 	}
-	if o.taint {
+	if o.taintedWorkers > 0 {
 		dcgmExtras["tolerations"] = []map[string]any{
 			{"key": "nvidia.com/gpu", "operator": "Exists", "effect": "NoSchedule"},
 		}
@@ -358,7 +358,7 @@ func buildAMDValues(o *createOpts) map[string]any {
 	if o.defaultUtilization != "" {
 		sub["defaultUtilization"] = o.defaultUtilization
 	}
-	if o.taint {
+	if o.taintedWorkers > 0 {
 		sub["tolerations"] = []map[string]any{
 			{"key": "amd.com/gpu", "operator": "Exists", "effect": "NoSchedule"},
 		}

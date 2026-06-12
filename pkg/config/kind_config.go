@@ -21,11 +21,11 @@ const (
 // Options is the input to Render. Zero values are replaced with the Default* constants above,
 // except for Vendor which is required.
 type Options struct {
-	Vendor     string
-	Name       string
-	Workers    int
-	K8sVersion string
-	Taint      bool
+	Vendor         string
+	Name           string
+	Workers        int
+	K8sVersion     string
+	TaintedWorkers int
 }
 
 // Render returns the kind cluster YAML configured for the given Options.
@@ -36,7 +36,8 @@ type Options struct {
 //     image kindest/node:<K8sVersion>.
 //   - Labels workers with sims.io/gpu-vendor=<vendor> and a vendor-specific
 //     "GPU present" label so node selectors can target them.
-//   - When Options.Taint is set, adds <vendor>.com/gpu=present:NoSchedule on workers.
+//   - When Options.TaintedWorkers > 0, adds <vendor>.com/gpu=present:NoSchedule
+//     on the first TaintedWorkers workers via kubeadmConfigPatches.
 //   - For the NVIDIA vendor, enables the DynamicResourceAllocation feature gate and
 //     the resource.k8s.io/v1alpha3 runtime config (required by fake-gpu-operator's
 //     DRA plugin on K8s ≥1.31; harmless on older versions but the DRA plugin pods
@@ -53,15 +54,19 @@ func Render(o Options) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+type workerData struct {
+	Tainted bool
+}
+
 type templateData struct {
-	Name          string
-	NodeImage     string
-	WorkerIndices []struct{}
-	Vendor        string
-	PresentLabel  string
-	ExtraLabels   map[string]string
-	Taint     bool
-	EnableDRA bool
+	Name         string
+	NodeImage    string
+	Workers      []workerData
+	Vendor       string
+	PresentLabel string
+	ExtraLabels  map[string]string
+	TaintKey     string
+	EnableDRA    bool
 }
 
 func buildTemplateData(o Options) (templateData, error) {
@@ -85,11 +90,6 @@ func buildTemplateData(o Options) (templateData, error) {
 		VendorAMD:    "feature.node.kubernetes.io/amd-gpu",
 	}[o.Vendor]
 
-	// fake-gpu-operator's DaemonSets gate on the standard NVIDIA GPU Operator
-	// labels (nvidia.com/gpu.deploy.*), and its status-updater binds a node
-	// to a "node pool" (default = "default") via run.ai/simulated-gpu-node-pool.
-	// Without that pool label, no per-node topology ConfigMap is generated and
-	// the device-plugin pod can't compute its GPU count.
 	var extraLabels map[string]string
 	if o.Vendor == VendorNVIDIA {
 		extraLabels = map[string]string{
@@ -99,15 +99,20 @@ func buildTemplateData(o Options) (templateData, error) {
 		}
 	}
 
+	workers := make([]workerData, o.Workers)
+	for i := range workers {
+		workers[i].Tainted = i < o.TaintedWorkers
+	}
+
 	return templateData{
-		Name:          o.Name,
-		NodeImage:     "kindest/node:" + o.K8sVersion,
-		WorkerIndices: make([]struct{}, o.Workers),
-		Vendor:        o.Vendor,
-		PresentLabel:  present,
-		ExtraLabels:   extraLabels,
-		Taint:     o.Taint,
-		EnableDRA: o.Vendor == VendorNVIDIA,
+		Name:         o.Name,
+		NodeImage:    "kindest/node:" + o.K8sVersion,
+		Workers:      workers,
+		Vendor:       o.Vendor,
+		PresentLabel: present,
+		ExtraLabels:  extraLabels,
+		TaintKey:     o.Vendor + ".com/gpu",
+		EnableDRA:    o.Vendor == VendorNVIDIA,
 	}, nil
 }
 
@@ -117,7 +122,7 @@ name: {{ .Name }}
 nodes:
   - role: control-plane
     image: {{ .NodeImage }}
-{{- range $i, $_ := .WorkerIndices }}
+{{- range $i, $w := .Workers }}
   - role: worker
     image: {{ $.NodeImage }}
     labels:
@@ -126,13 +131,13 @@ nodes:
 {{- range $k, $v := $.ExtraLabels }}
       {{ $k }}: "{{ $v }}"
 {{- end }}
-{{- if $.Taint }}
+{{- if $w.Tainted }}
     kubeadmConfigPatches:
       - |
         kind: JoinConfiguration
         nodeRegistration:
           taints:
-            - key: "{{ $.Vendor }}.com/gpu"
+            - key: "{{ $.TaintKey }}"
               value: "present"
               effect: NoSchedule
 {{- end }}
