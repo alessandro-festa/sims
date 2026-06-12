@@ -27,7 +27,6 @@ type Options struct {
 	Name         string
 	Workers      int
 	K8sVersion   string
-	Taint        bool
 	RegistryName string
 	RegistryPort int
 }
@@ -40,7 +39,6 @@ type Options struct {
 //     image kindest/node:<K8sVersion>.
 //   - Labels workers with sims.io/gpu-vendor=<vendor> and a vendor-specific
 //     "GPU present" label so node selectors can target them.
-//   - When Options.Taint is set, adds <vendor>.com/gpu=present:NoSchedule on workers.
 //   - Configures containerd to mirror localhost:<RegistryPort> to a registry
 //     container reachable inside the kind network as <RegistryName>:<RegistryPort>.
 //   - For the NVIDIA vendor, enables the DynamicResourceAllocation feature gate and
@@ -66,7 +64,6 @@ type templateData struct {
 	Vendor        string
 	PresentLabel  string
 	ExtraLabels   map[string]string
-	Taint         bool
 	RegistryName  string
 	RegistryPort  int
 	EnableDRA     bool
@@ -120,7 +117,6 @@ func buildTemplateData(o Options) (templateData, error) {
 		Vendor:        o.Vendor,
 		PresentLabel:  present,
 		ExtraLabels:   extraLabels,
-		Taint:         o.Taint,
 		RegistryName:  o.RegistryName,
 		RegistryPort:  o.RegistryPort,
 		EnableDRA:     o.Vendor == VendorNVIDIA,
@@ -141,12 +137,6 @@ nodes:
       {{ $.PresentLabel }}: "true"
 {{- range $k, $v := $.ExtraLabels }}
       {{ $k }}: "{{ $v }}"
-{{- end }}
-{{- if $.Taint }}
-    taints:
-      - key: "{{ $.Vendor }}.com/gpu"
-        value: "present"
-        effect: NoSchedule
 {{- end }}
 {{- end }}
 containerdConfigPatches:

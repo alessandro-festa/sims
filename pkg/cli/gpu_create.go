@@ -43,7 +43,6 @@ type createOpts struct {
 	gpusPerWorker  int
 	k8sVersion     string
 	withMonitoring bool
-	taint          bool
 }
 
 func newGPUCreateCmd() *cobra.Command {
@@ -61,7 +60,6 @@ func newGPUCreateCmd() *cobra.Command {
 	cmd.Flags().IntVar(&o.gpusPerWorker, "gpus-per-worker", 2, "Fake GPUs advertised per worker")
 	cmd.Flags().StringVar(&o.k8sVersion, "k8s-version", "v1.31.0", "Kubernetes version for kind nodes")
 	cmd.Flags().BoolVar(&o.withMonitoring, "monitoring", false, "Install kube-prometheus-stack + vendor dashboard")
-	cmd.Flags().BoolVar(&o.taint, "taint", false, "Add <vendor>.com/gpu=present:NoSchedule taint to worker nodes")
 	_ = cmd.MarkFlagRequired("vendor")
 	return cmd
 }
@@ -90,7 +88,6 @@ func runCreate(ctx context.Context, stdout io.Writer, o *createOpts) error {
 		Name:       name,
 		Workers:    o.workers,
 		K8sVersion: o.k8sVersion,
-		Taint:      o.taint,
 	})
 	if err != nil {
 		return err

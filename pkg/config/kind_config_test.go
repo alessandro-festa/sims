@@ -24,11 +24,6 @@ func TestRender_Golden(t *testing.T) {
 			golden: "amd_default.yaml",
 		},
 		{
-			name:   "nvidia_taint_4workers",
-			opts:   Options{Vendor: VendorNVIDIA, Workers: 4, Taint: true},
-			golden: "nvidia_taint_4workers.yaml",
-		},
-		{
 			name:   "amd_custom_registry",
 			opts:   Options{Vendor: VendorAMD, Name: "amd-test", RegistryName: "my-reg", RegistryPort: 5555},
 			golden: "amd_custom_registry.yaml",
