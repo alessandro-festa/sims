@@ -1,0 +1,8 @@
+apiVersion: sims.io/v1
+kind: SimsConfig
+vendor: amd
+gpu:
+  family: MI325X
+  perWorker: 8
+workers: 4
+monitoring: true

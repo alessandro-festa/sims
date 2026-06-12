@@ -1,0 +1,10 @@
+apiVersion: sims.io/v1
+kind: SimsConfig
+vendor: amd
+gpu:
+  family: MI300X
+  features:
+    partition:
+      mode: cpx
+      count: 4
+monitoring: true

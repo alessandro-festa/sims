@@ -15,6 +15,23 @@ sims gpu create --vendor nvidia --monitoring
 sims gpu create --vendor amd    --monitoring
 ```
 
+Or use a declarative config file to specify GPU family, memory, partitions, and more:
+
+```yaml
+# sims.yaml
+apiVersion: sims.io/v1
+kind: SimsConfig
+vendor: nvidia
+gpu:
+  family: H100
+  perWorker: 4
+monitoring: true
+```
+
+```
+sims gpu create --config sims.yaml
+```
+
 ## Status
 
 | Phase | Scope | Status |
@@ -26,10 +43,11 @@ sims gpu create --vendor amd    --monitoring
 | 5 | AMD topology + node labeller + pod-driven metrics | ✅ done |
 | 6 | `DeviceConfig` CRD reconciler (optional) | optional / skipped |
 | 7 | Parity polish — NVIDIA DCGM extras sidecar | ✅ done (main thrust); `rocm-smi` shim + CPX/SPX deferred |
+| 8 | SimsConfig YAML — declarative `--config` | 🟡 in progress |
 
 **End-to-end validated** on 2026-06-09 against real vendor containers (`rocm/dev-ubuntu-22.04:6.0` for AMD, `nvidia/cuda:12.4.0-base-ubuntu22.04` for NVIDIA). Pods schedule + reach Running; ROCm / CUDA tools fail authentically inside (no real GPU); Grafana panels show per-pod metrics driven by `sims.io/simulated-gpu-utilization` annotations. See [docs/quickstart.md](docs/quickstart.md#real-vendor-container-demo) for the demo flow.
 
-**Commands:** `sims gpu create --vendor {nvidia|amd} [--monitoring]`, `sims gpu list`, `sims gpu sample --vendor {nvidia|amd}`, `sims gpu status`, `sims gpu dashboard [--name N] [--stop]`, `sims gpu monitoring enable|disable`, `sims gpu delete`, `sims gpu doctor`.
+**Commands:** `sims gpu create --vendor {nvidia|amd} [--monitoring]` or `sims gpu create --config <path>`, `sims gpu list`, `sims gpu sample --vendor {nvidia|amd}`, `sims gpu status`, `sims gpu dashboard [--name N] [--stop]`, `sims gpu monitoring enable|disable`, `sims gpu delete`, `sims gpu doctor`.
 
 See [docs/architecture.md](docs/architecture.md) for the full design.
 
@@ -37,33 +55,48 @@ See [docs/architecture.md](docs/architecture.md) for the full design.
 
 Requires Docker (or Podman with the Docker-compat socket), [`kind`](https://kind.sigs.k8s.io/docs/user/quick-start/#installation), [`helm`](https://helm.sh/docs/intro/install/), and [`kubectl`](https://kubernetes.io/docs/tasks/tools/).
 
-**NVIDIA:**
+**With CLI flags:**
 
 ```bash
 go build -o bin/sims ./cmd/sims
 ./bin/sims gpu create --vendor nvidia --workers 2 --gpus-per-worker 2 --monitoring
-./bin/sims gpu sample --vendor nvidia | kubectl apply -f -
 ./bin/sims gpu dashboard                # http://localhost:3000 (admin / prom-operator)
 ./bin/sims gpu delete
 ```
 
-**AMD:**
+**With a config file (recommended for reproducible setups):**
 
 ```bash
-./bin/sims gpu create --vendor amd --workers 2 --gpus-per-worker 2 --monitoring
-./bin/sims gpu sample --vendor amd | kubectl apply -f -
-./bin/sims gpu dashboard                # http://localhost:3000 (admin / prom-operator)
+cat > sims.yaml <<'EOF'
+apiVersion: sims.io/v1
+kind: SimsConfig
+vendor: amd
+gpu:
+  family: MI300X
+  perWorker: 4
+  features:
+    partition:
+      mode: cpx
+      count: 4
+monitoring: true
+EOF
+
+./bin/sims gpu create --config sims.yaml
+./bin/sims gpu dashboard
 ./bin/sims gpu delete
 ```
 
-See [docs/quickstart.md](docs/quickstart.md) for the longer walkthrough including the real-vendor-container demo.
+CLI flags override config values: `sims gpu create --config sims.yaml --workers 1` uses 1 worker regardless of what the config says.
+
+See [docs/quickstart.md](docs/quickstart.md) for the longer walkthrough including the GPU family catalog, config file reference, and real-vendor-container demo.
 
 ## Documentation
 
 - [Architecture](docs/architecture.md) — components, data flow, design decisions
-- [Quickstart](docs/quickstart.md) — install, common workflows
+- [Quickstart](docs/quickstart.md) — install, config file reference, GPU family catalog, common workflows
 - [Adding metrics](docs/adding-metrics.md) — how the simulated AMD/NVIDIA metrics work
 - [Contributing](docs/contributing.md) — dev setup, code layout, how to add a phase
+- [Example configs](examples/) — ready-to-use SimsConfig YAML files
 
 ## Acknowledgements
 

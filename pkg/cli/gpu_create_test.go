@@ -34,38 +34,99 @@ func TestResolveChartDir(t *testing.T) {
 	})
 }
 
-func TestBuildNVIDIAValues(t *testing.T) {
-	v := buildNVIDIAValues(4)
+func TestBuildNVIDIAValues_NoConfig(t *testing.T) {
+	v := buildNVIDIAValues(&createOpts{gpusPerWorker: 4})
 	if v["gpusPerNode"] != 4 {
 		t.Errorf("top-level gpusPerNode = %v, want 4", v["gpusPerNode"])
 	}
-	sub, ok := v["fake-gpu-operator"].(map[string]any)
-	if !ok {
-		t.Fatalf("fake-gpu-operator not a map: %T", v["fake-gpu-operator"])
+	if _, ok := v["gpuProduct"]; ok {
+		t.Error("gpuProduct should not be set without config")
 	}
+	sub := v["fake-gpu-operator"].(map[string]any)
 	pool := sub["topology"].(map[string]any)["nodePools"].(map[string]any)["default"].(map[string]any)
 	if pool["gpuCount"] != 4 {
 		t.Errorf("nodePool gpuCount = %v, want 4", pool["gpuCount"])
 	}
 }
 
-func TestBuildAMDValues(t *testing.T) {
-	v := buildAMDValues(3)
+func TestBuildNVIDIAValues_WithFamily(t *testing.T) {
+	v := buildNVIDIAValues(&createOpts{
+		gpusPerWorker:  2,
+		productName:    "H100",
+		gpuMemoryBytes: 80 * (1 << 30),
+	})
+	if v["gpuProduct"] != "H100" {
+		t.Errorf("gpuProduct = %v, want H100", v["gpuProduct"])
+	}
+	if v["gpuMemory"] != int64(81920) {
+		t.Errorf("gpuMemory = %v, want 81920", v["gpuMemory"])
+	}
+	pool := v["fake-gpu-operator"].(map[string]any)["topology"].(map[string]any)["nodePools"].(map[string]any)["default"].(map[string]any)
+	if pool["gpuProduct"] != "H100" {
+		t.Errorf("pool gpuProduct = %v, want H100", pool["gpuProduct"])
+	}
+	dcgm := v["fake-dcgm-extras"].(map[string]any)
+	if dcgm["productName"] != "H100" {
+		t.Errorf("dcgm productName = %v, want H100", dcgm["productName"])
+	}
+}
+
+func TestBuildNVIDIAValues_SpaceToDash(t *testing.T) {
+	v := buildNVIDIAValues(&createOpts{
+		gpusPerWorker:  2,
+		productName:    "Tesla T4",
+		gpuMemoryBytes: 16 * (1 << 30),
+	})
+	if v["gpuProduct"] != "Tesla-T4" {
+		t.Errorf("gpuProduct = %v, want Tesla-T4", v["gpuProduct"])
+	}
+	dcgm := v["fake-dcgm-extras"].(map[string]any)
+	if dcgm["productName"] != "Tesla T4" {
+		t.Errorf("dcgm productName = %v, want 'Tesla T4' (with space)", dcgm["productName"])
+	}
+}
+
+func TestBuildAMDValues_NoConfig(t *testing.T) {
+	v := buildAMDValues(&createOpts{gpusPerWorker: 3})
 	if v["gpusPerNode"] != 3 {
 		t.Errorf("top-level gpusPerNode = %v, want 3", v["gpusPerNode"])
 	}
-	// Phase 4+ default: capacityPatching is OFF (device-plugin owns
-	// capacity). The CLI must NOT override the chart default — users who
-	// want the patcher back can --set capacityPatching.enabled=true.
 	if _, present := v["capacityPatching"]; present {
 		t.Errorf("buildAMDValues should not override capacityPatching; got %v", v["capacityPatching"])
 	}
-	sub, ok := v["fake-rocm-gpu-operator"].(map[string]any)
-	if !ok {
-		t.Fatalf("fake-rocm-gpu-operator not a map: %T", v["fake-rocm-gpu-operator"])
+	if _, present := v["productName"]; present {
+		t.Error("productName should not be set without config")
 	}
+	sub := v["fake-rocm-gpu-operator"].(map[string]any)
 	if sub["gpusPerNode"] != 3 {
 		t.Errorf("subchart gpusPerNode = %v, want 3", sub["gpusPerNode"])
+	}
+}
+
+func TestBuildAMDValues_WithFamilyAndPartition(t *testing.T) {
+	v := buildAMDValues(&createOpts{
+		gpusPerWorker:  4,
+		productName:    "MI300X",
+		gpuMemoryBytes: 192 * (1 << 30),
+		partitionMode:  "cpx",
+		partitionCount: 4,
+	})
+	if v["productName"] != "MI300X" {
+		t.Errorf("productName = %v, want MI300X", v["productName"])
+	}
+	if v["gpuMemoryBytes"] != int64(192*(1<<30)) {
+		t.Errorf("gpuMemoryBytes = %v, want %d", v["gpuMemoryBytes"], 192*(1<<30))
+	}
+	sub := v["fake-rocm-gpu-operator"].(map[string]any)
+	if sub["productName"] != "MI300X" {
+		t.Errorf("subchart productName = %v, want MI300X", sub["productName"])
+	}
+	cp := sub["computePartition"].(map[string]any)
+	if cp["mode"] != "cpx" {
+		t.Errorf("partition mode = %v, want cpx", cp["mode"])
+	}
+	if cp["count"] != 4 {
+		t.Errorf("partition count = %v, want 4", cp["count"])
 	}
 }
 
@@ -78,7 +139,8 @@ func TestVendorWiring(t *testing.T) {
 		if res != gpuResourceAMD {
 			t.Errorf("resource = %q, want %q", res, gpuResourceAMD)
 		}
-		if vb(2)["gpusPerNode"] != 2 {
+		v := vb(&createOpts{gpusPerWorker: 2})
+		if v["gpusPerNode"] != 2 {
 			t.Errorf("values builder returned wrong gpusPerNode")
 		}
 	})
@@ -90,7 +152,8 @@ func TestVendorWiring(t *testing.T) {
 		if res != gpuResourceNVIDIA {
 			t.Errorf("resource = %q, want %q", res, gpuResourceNVIDIA)
 		}
-		if vb(2)["gpusPerNode"] != 2 {
+		v := vb(&createOpts{gpusPerWorker: 2})
+		if v["gpusPerNode"] != 2 {
 			t.Errorf("values builder returned wrong gpusPerNode")
 		}
 	})

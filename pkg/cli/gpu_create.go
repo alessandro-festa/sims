@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -15,6 +16,7 @@ import (
 	"github.com/alessandro-festa/sims/pkg/config"
 	"github.com/alessandro-festa/sims/pkg/helm"
 	"github.com/alessandro-festa/sims/pkg/kube"
+	"github.com/alessandro-festa/sims/pkg/simsconfig"
 )
 
 const (
@@ -44,6 +46,12 @@ type createOpts struct {
 	k8sVersion     string
 	withMonitoring bool
 	taint          bool
+	configPath     string
+
+	productName    string
+	gpuMemoryBytes int64
+	partitionMode  string
+	partitionCount int
 }
 
 func newGPUCreateCmd() *cobra.Command {
@@ -52,9 +60,13 @@ func newGPUCreateCmd() *cobra.Command {
 		Use:   "create",
 		Short: "Create a kind cluster simulating GPUs of the chosen vendor",
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := applyConfig(cmd, &o); err != nil {
+				return err
+			}
 			return runCreate(cmd.Context(), cmd.OutOrStdout(), &o)
 		},
 	}
+	cmd.Flags().StringVar(&o.configPath, "config", "", "Path to SimsConfig YAML file")
 	cmd.Flags().StringVar(&o.vendor, "vendor", "", "GPU vendor to simulate (nvidia|amd)")
 	cmd.Flags().StringVar(&o.name, "name", "", "Cluster name (default: sims-<vendor>)")
 	cmd.Flags().IntVar(&o.workers, "workers", 2, "Number of worker nodes")
@@ -62,8 +74,50 @@ func newGPUCreateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&o.k8sVersion, "k8s-version", "v1.31.0", "Kubernetes version for kind nodes")
 	cmd.Flags().BoolVar(&o.withMonitoring, "monitoring", false, "Install kube-prometheus-stack + vendor dashboard")
 	cmd.Flags().BoolVar(&o.taint, "taint", false, "Add <vendor>.com/gpu=present:NoSchedule taint to worker nodes")
-	_ = cmd.MarkFlagRequired("vendor")
 	return cmd
+}
+
+func applyConfig(cmd *cobra.Command, o *createOpts) error {
+	if o.configPath == "" {
+		if o.vendor == "" {
+			return fmt.Errorf("either --vendor or --config is required")
+		}
+		return nil
+	}
+	cfg, err := simsconfig.Load(o.configPath)
+	if err != nil {
+		return fmt.Errorf("load --config: %w", err)
+	}
+
+	if !cmd.Flags().Changed("vendor") {
+		o.vendor = cfg.Vendor
+	}
+	if !cmd.Flags().Changed("name") && cfg.Name != "" {
+		o.name = cfg.Name
+	}
+	if !cmd.Flags().Changed("workers") {
+		o.workers = cfg.Workers
+	}
+	if !cmd.Flags().Changed("gpus-per-worker") {
+		o.gpusPerWorker = cfg.GPU.PerWorker
+	}
+	if !cmd.Flags().Changed("k8s-version") && cfg.K8sVersion != "" {
+		o.k8sVersion = cfg.K8sVersion
+	}
+	if !cmd.Flags().Changed("taint") {
+		o.taint = cfg.Taint
+	}
+	if !cmd.Flags().Changed("monitoring") {
+		o.withMonitoring = cfg.Monitoring
+	}
+
+	if fam, ok := simsconfig.Families[cfg.GPU.Family]; ok {
+		o.productName = fam.ProductName
+		o.gpuMemoryBytes = cfg.GPU.MemoryBytes
+	}
+	o.partitionMode = cfg.GPU.Features.Partition.Mode
+	o.partitionCount = cfg.GPU.Features.Partition.Count
+	return nil
 }
 
 func runCreate(ctx context.Context, stdout io.Writer, o *createOpts) error {
@@ -117,7 +171,7 @@ func runCreate(ctx context.Context, stdout io.Writer, o *createOpts) error {
 	if err := hc.EnsureDependencies(ctx, chartDir); err != nil {
 		return err
 	}
-	if err := hc.Install(ctx, chartRelease, chartDir, valuesBuilder(o.gpusPerWorker), helm.WithoutCreateNamespace()); err != nil {
+	if err := hc.Install(ctx, chartRelease, chartDir, valuesBuilder(o), helm.WithoutCreateNamespace()); err != nil {
 		return err
 	}
 
@@ -148,11 +202,11 @@ func runCreate(ctx context.Context, stdout io.Writer, o *createOpts) error {
 // vendorWiring returns the helm release name, values builder, and resource
 // name for the chosen vendor. The four wiring constants per vendor live at
 // the top of this file.
-func vendorWiring(vendor string) (release string, values func(int) map[string]any, resource string) {
+func vendorWiring(vendor string) (release string, values func(*createOpts) map[string]any, resource string) {
 	switch vendor {
 	case config.VendorAMD:
 		return chartReleaseAMD, buildAMDValues, gpuResourceAMD
-	default: // VendorNVIDIA; validateVendor has already rejected anything else.
+	default:
 		return chartReleaseNVIDIA, buildNVIDIAValues, gpuResourceNVIDIA
 	}
 }
@@ -239,32 +293,54 @@ func psaPrivilegedLabels() map[string]string {
 	}
 }
 
-func buildNVIDIAValues(gpusPerWorker int) map[string]any {
-	return map[string]any{
-		"gpusPerNode": gpusPerWorker,
-		"fake-gpu-operator": map[string]any{
-			"topology": map[string]any{
-				"nodePools": map[string]any{
-					"default": map[string]any{
-						"gpuCount": gpusPerWorker,
-					},
-				},
+func buildNVIDIAValues(o *createOpts) map[string]any {
+	vals := map[string]any{
+		"gpusPerNode": o.gpusPerWorker,
+	}
+	pool := map[string]any{
+		"gpuCount": o.gpusPerWorker,
+	}
+	if o.productName != "" {
+		gpuProduct := strings.ReplaceAll(o.productName, " ", "-")
+		memMiB := o.gpuMemoryBytes / (1 << 20)
+		vals["gpuProduct"] = gpuProduct
+		vals["gpuMemory"] = memMiB
+		pool["gpuProduct"] = gpuProduct
+		pool["gpuMemory"] = memMiB
+		vals["fake-dcgm-extras"] = map[string]any{
+			"gpusPerNode": o.gpusPerWorker,
+			"productName": o.productName,
+		}
+	}
+	vals["fake-gpu-operator"] = map[string]any{
+		"topology": map[string]any{
+			"nodePools": map[string]any{
+				"default": pool,
 			},
 		},
 	}
+	return vals
 }
 
-// buildAMDValues propagates --gpus-per-worker into both sims-amd (which
-// drives the capacity-patcher Job when enabled) and the fake-rocm-gpu-
-// operator subchart (which sets --gpus-per-node on the metrics-exporter
-// + device-plugin DaemonSets). Does NOT override capacityPatching.enabled
-// — Phase 4's chart default (false) wins so the device-plugin is the sole
-// capacity source; users can re-enable the patcher via --set if needed.
-func buildAMDValues(gpusPerWorker int) map[string]any {
-	return map[string]any{
-		"gpusPerNode": gpusPerWorker,
-		"fake-rocm-gpu-operator": map[string]any{
-			"gpusPerNode": gpusPerWorker,
-		},
+func buildAMDValues(o *createOpts) map[string]any {
+	vals := map[string]any{
+		"gpusPerNode": o.gpusPerWorker,
 	}
+	sub := map[string]any{
+		"gpusPerNode": o.gpusPerWorker,
+	}
+	if o.productName != "" {
+		vals["productName"] = o.productName
+		vals["gpuMemoryBytes"] = o.gpuMemoryBytes
+		sub["productName"] = o.productName
+		sub["gpuMemoryBytes"] = o.gpuMemoryBytes
+	}
+	if o.partitionMode != "" {
+		sub["computePartition"] = map[string]any{
+			"mode":  o.partitionMode,
+			"count": o.partitionCount,
+		}
+	}
+	vals["fake-rocm-gpu-operator"] = sub
+	return vals
 }
