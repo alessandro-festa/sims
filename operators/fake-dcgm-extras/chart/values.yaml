@@ -5,8 +5,8 @@
 enabled: true
 
 image:
-  repository: localhost:5001/fake-dcgm-extras
-  tag: dev
+  repository: ghcr.io/alessandro-festa/fake-dcgm-extras
+  tag: "0.1.0"
   pullPolicy: IfNotPresent
 
 # Per-node fake GPU slot count + product label.

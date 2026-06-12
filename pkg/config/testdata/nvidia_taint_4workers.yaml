@@ -52,10 +52,6 @@ nodes:
       - key: "nvidia.com/gpu"
         value: "present"
         effect: NoSchedule
-containerdConfigPatches:
-  - |-
-    [plugins."io.containerd.grpc.v1.cri".registry]
-      config_path = "/etc/containerd/certs.d"
 featureGates:
   DynamicResourceAllocation: true
 runtimeConfig:

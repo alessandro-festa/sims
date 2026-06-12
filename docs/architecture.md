@@ -91,9 +91,9 @@ Keeping them independent means:
 
 `sims gpu dashboard` runs `kubectl port-forward svc/sims-monitoring-grafana 3000:80 -n monitoring` in the background, stores the PID under `~/.cache/sims/<cluster>/grafana.pid`, prints the URL + credentials (`admin` / `prom-operator` default), and optionally opens the browser. `sims gpu dashboard --stop` kills the forward. No kind `extraPortMappings` and no ingress controller are required.
 
-## Local container registry
+## Container images
 
-On first `sims gpu create`, a local `kind-registry` container is started (idempotent — checked via `docker inspect`). The kind config registers it as a containerd mirror at `localhost:5001`. This lets `sims gpu load-image` push our `fake-rocm-gpu-operator` image into the cluster without rebuilding kind nodes.
+Operator images (`fake-rocm-gpu-operator`, `fake-dcgm-extras`) are published to GHCR (`ghcr.io/alessandro-festa/...`) on each `v*` tag via `.github/workflows/publish-images.yml`. The Helm charts reference these GHCR images by default, eliminating the need for a local container registry.
 
 ## Phased delivery
 

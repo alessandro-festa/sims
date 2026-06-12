@@ -29,7 +29,7 @@ sims gpu create --vendor amd    --monitoring
 
 **End-to-end validated** on 2026-06-09 against real vendor containers (`rocm/dev-ubuntu-22.04:6.0` for AMD, `nvidia/cuda:12.4.0-base-ubuntu22.04` for NVIDIA). Pods schedule + reach Running; ROCm / CUDA tools fail authentically inside (no real GPU); Grafana panels show per-pod metrics driven by `sims.io/simulated-gpu-utilization` annotations. See [docs/quickstart.md](docs/quickstart.md#real-vendor-container-demo) for the demo flow.
 
-**Commands:** `sims gpu create --vendor {nvidia|amd} [--monitoring]`, `sims gpu sample --vendor {nvidia|amd}`, `sims gpu status`, `sims gpu load-image`, `sims gpu dashboard [--name N] [--stop]`, `sims gpu monitoring enable|disable`, `sims gpu delete`, `sims gpu doctor`.
+**Commands:** `sims gpu create --vendor {nvidia|amd} [--monitoring]`, `sims gpu sample --vendor {nvidia|amd}`, `sims gpu status`, `sims gpu dashboard [--name N] [--stop]`, `sims gpu monitoring enable|disable`, `sims gpu delete`, `sims gpu doctor`.
 
 See [docs/architecture.md](docs/architecture.md) for the full design.
 
@@ -42,10 +42,6 @@ Requires Docker (or Podman with the Docker-compat socket), [`kind`](https://kind
 ```bash
 go build -o bin/sims ./cmd/sims
 ./bin/sims gpu create --vendor nvidia --workers 2 --gpus-per-worker 2 --monitoring
-# Phase 7 DCGM extras sidecar needs its image loaded into kind:
-make -C operators/fake-dcgm-extras image
-./bin/sims gpu load-image fake-dcgm-extras:dev
-# Sample workload + Grafana:
 ./bin/sims gpu sample --vendor nvidia | kubectl apply -f -
 ./bin/sims gpu dashboard                # http://localhost:3000 (admin / prom-operator)
 ./bin/sims gpu delete
@@ -55,11 +51,6 @@ make -C operators/fake-dcgm-extras image
 
 ```bash
 ./bin/sims gpu create --vendor amd --workers 2 --gpus-per-worker 2 --monitoring
-# AMD path needs the operator + DCGM-extras images loaded:
-make -C operators/fake-rocm-gpu-operator image
-make -C operators/fake-dcgm-extras image
-./bin/sims gpu load-image fake-rocm-gpu-operator:dev
-./bin/sims gpu load-image fake-dcgm-extras:dev
 ./bin/sims gpu sample --vendor amd | kubectl apply -f -
 ./bin/sims gpu dashboard                # http://localhost:3000 (admin / prom-operator)
 ./bin/sims gpu delete

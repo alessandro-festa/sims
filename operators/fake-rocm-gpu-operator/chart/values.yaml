@@ -2,8 +2,8 @@
 # gpusPerNode/productName/gpuMemoryBytes from --gpus-per-worker.
 
 image:
-  repository: fake-rocm-gpu-operator
-  tag: dev
+  repository: ghcr.io/alessandro-festa/fake-rocm-gpu-operator
+  tag: "0.1.0"
   pullPolicy: IfNotPresent
 
 # Per-node fake GPU configuration. These flow through the controller

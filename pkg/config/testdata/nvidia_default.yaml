@@ -20,10 +20,6 @@ nodes:
       nvidia.com/gpu.deploy.dcgm-exporter: "true"
       nvidia.com/gpu.deploy.device-plugin: "true"
       run.ai/simulated-gpu-node-pool: "default"
-containerdConfigPatches:
-  - |-
-    [plugins."io.containerd.grpc.v1.cri".registry]
-      config_path = "/etc/containerd/certs.d"
 featureGates:
   DynamicResourceAllocation: true
 runtimeConfig:

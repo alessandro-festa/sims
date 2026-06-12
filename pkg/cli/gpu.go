@@ -12,7 +12,6 @@ func newGPUCmd() *cobra.Command {
 		newGPUDeleteCmd(),
 		newGPUStatusCmd(),
 		newGPUDashboardCmd(),
-		newGPULoadImageCmd(),
 		newGPUSampleCmd(),
 		newGPUMonitoringCmd(),
 		newGPUDoctorCmd(),

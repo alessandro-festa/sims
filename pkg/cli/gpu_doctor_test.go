@@ -10,9 +10,7 @@ import (
 func TestRunDoctor_TableHeaderAndCriticalExitCode(t *testing.T) {
 	// We can't avoid running the real checks here (they exec docker, hit
 	// the network) but we can at least confirm the table header lands and
-	// the function returns *something*. CI runners typically don't have
-	// Docker configured with localhost:5001 in insecure-registries, so the
-	// critical check will fail and we expect an error.
+	// the function returns *something*.
 	var buf bytes.Buffer
 	err := runDoctor(context.Background(), &buf)
 	out := buf.String()
@@ -22,10 +20,7 @@ func TestRunDoctor_TableHeaderAndCriticalExitCode(t *testing.T) {
 			t.Errorf("table missing %q:\n%s", want, out)
 		}
 	}
-	// In a CI runner the daemon may be reachable but insecure-registries
-	// won't include localhost:5001 → critical fail → non-nil error.
-	// On a dev machine without Docker, the daemon check itself fails
-	// → also non-nil error.
+	// On a CI runner without Docker the daemon check fails → non-nil error.
 	// Either way, the test just asserts the function returned cleanly.
 	_ = err
 }

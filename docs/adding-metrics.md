@@ -69,7 +69,7 @@ metadata:
 spec:
   initContainers:
     - name: install-rocm-smi-mock
-      image: localhost:5001/fake-rocm-gpu-operator:dev
+      image: ghcr.io/alessandro-festa/fake-rocm-gpu-operator:0.1.0
       command: ["sh", "-c", "cp /rocm-smi-mock /shared/rocm-smi && chmod +x /shared/rocm-smi"]
       volumeMounts:
         - { name: rocm-bin, mountPath: /shared }
