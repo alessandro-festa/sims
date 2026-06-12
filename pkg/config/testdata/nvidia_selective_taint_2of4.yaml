@@ -38,20 +38,8 @@ nodes:
               effect: NoSchedule
   - role: worker
     image: kindest/node:v1.31.0
-    labels:
-      sims.io/gpu-vendor: "nvidia"
-      nvidia.com/gpu.present: "true"
-      nvidia.com/gpu.deploy.dcgm-exporter: "true"
-      nvidia.com/gpu.deploy.device-plugin: "true"
-      run.ai/simulated-gpu-node-pool: "default"
   - role: worker
     image: kindest/node:v1.31.0
-    labels:
-      sims.io/gpu-vendor: "nvidia"
-      nvidia.com/gpu.present: "true"
-      nvidia.com/gpu.deploy.dcgm-exporter: "true"
-      nvidia.com/gpu.deploy.device-plugin: "true"
-      run.ai/simulated-gpu-node-pool: "default"
 featureGates:
   DynamicResourceAllocation: true
 runtimeConfig:

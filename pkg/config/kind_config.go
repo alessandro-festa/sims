@@ -28,20 +28,30 @@ type Options struct {
 	TaintedWorkers int
 }
 
+// GPUWorkers returns the number of workers that will advertise GPU capacity.
+// When TaintedWorkers > 0, only those workers are GPU nodes. Otherwise all
+// workers are GPU nodes (the default, backward-compatible behavior).
+func (o Options) GPUWorkers() int {
+	if o.TaintedWorkers > 0 {
+		return o.TaintedWorkers
+	}
+	if o.Workers > 0 {
+		return o.Workers
+	}
+	return DefaultWorkers
+}
+
 // Render returns the kind cluster YAML configured for the given Options.
 //
 // The rendered config:
 //   - Names the cluster "sims-<vendor>" when Options.Name is empty.
 //   - Creates one control-plane node and Options.Workers worker nodes, all on
 //     image kindest/node:<K8sVersion>.
-//   - Labels workers with sims.io/gpu-vendor=<vendor> and a vendor-specific
-//     "GPU present" label so node selectors can target them.
-//   - When Options.TaintedWorkers > 0, adds <vendor>.com/gpu=present:NoSchedule
-//     on the first TaintedWorkers workers via kubeadmConfigPatches.
+//   - When TaintedWorkers == 0 (default): all workers get GPU labels (no taint).
+//   - When TaintedWorkers > 0: only the first N workers get GPU labels + taint;
+//     remaining workers are plain compute nodes.
 //   - For the NVIDIA vendor, enables the DynamicResourceAllocation feature gate and
-//     the resource.k8s.io/v1alpha3 runtime config (required by fake-gpu-operator's
-//     DRA plugin on K8s ≥1.31; harmless on older versions but the DRA plugin pods
-//     will not become Ready).
+//     the resource.k8s.io/v1alpha3 runtime config.
 func Render(o Options) ([]byte, error) {
 	d, err := buildTemplateData(o)
 	if err != nil {
@@ -55,6 +65,7 @@ func Render(o Options) ([]byte, error) {
 }
 
 type workerData struct {
+	HasGPU  bool
 	Tainted bool
 }
 
@@ -101,7 +112,14 @@ func buildTemplateData(o Options) (templateData, error) {
 
 	workers := make([]workerData, o.Workers)
 	for i := range workers {
-		workers[i].Tainted = i < o.TaintedWorkers
+		if o.TaintedWorkers > 0 {
+			// Selective mode: only tainted workers are GPU nodes.
+			workers[i].HasGPU = i < o.TaintedWorkers
+			workers[i].Tainted = i < o.TaintedWorkers
+		} else {
+			// Default mode: all workers are GPU nodes, no taint.
+			workers[i].HasGPU = true
+		}
 	}
 
 	return templateData{
@@ -125,6 +143,7 @@ nodes:
 {{- range $i, $w := .Workers }}
   - role: worker
     image: {{ $.NodeImage }}
+{{- if $w.HasGPU }}
     labels:
       sims.io/gpu-vendor: "{{ $.Vendor }}"
       {{ $.PresentLabel }}: "true"
@@ -140,6 +159,7 @@ nodes:
             - key: "{{ $.TaintKey }}"
               value: "present"
               effect: NoSchedule
+{{- end }}
 {{- end }}
 {{- end }}
 {{- if .EnableDRA }}

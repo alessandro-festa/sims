@@ -179,11 +179,17 @@ func runCreate(ctx context.Context, stdout io.Writer, o *createOpts) error {
 		return err
 	}
 
+	renderOpts := config.Options{
+		Vendor:         o.vendor,
+		Workers:        o.workers,
+		TaintedWorkers: o.taintedWorkers,
+	}
+	gpuWorkers := renderOpts.GPUWorkers()
 	log.Info("waiting for GPU capacity on workers",
-		"resource", gpuResource, "per-worker", o.gpusPerWorker, "workers", o.workers)
+		"resource", gpuResource, "per-worker", o.gpusPerWorker, "gpu-workers", gpuWorkers)
 	wait, cancel := context.WithTimeout(ctx, capacityWaitWindow)
 	defer cancel()
-	if err := kube.WaitForResourceCapacity(wait, kc, gpuResource, o.gpusPerWorker, o.workers); err != nil {
+	if err := kube.WaitForResourceCapacity(wait, kc, gpuResource, o.gpusPerWorker, gpuWorkers); err != nil {
 		return err
 	}
 
@@ -197,9 +203,15 @@ func runCreate(ctx context.Context, stdout io.Writer, o *createOpts) error {
 	if o.withMonitoring {
 		monitoringMsg = "\nmonitoring: run `sims gpu dashboard` to open Grafana"
 	}
-	_, _ = fmt.Fprintf(stdout,
-		"cluster %q ready — %d workers × %d %s\nkubeconfig context: kind-%s%s\n",
-		name, o.workers, o.gpusPerWorker, gpuResource, name, monitoringMsg)
+	if o.taintedWorkers > 0 {
+		_, _ = fmt.Fprintf(stdout,
+			"cluster %q ready — %d GPU workers (tainted) + %d plain workers × %d %s\nkubeconfig context: kind-%s%s\n",
+			name, gpuWorkers, o.workers-gpuWorkers, o.gpusPerWorker, gpuResource, name, monitoringMsg)
+	} else {
+		_, _ = fmt.Fprintf(stdout,
+			"cluster %q ready — %d workers × %d %s\nkubeconfig context: kind-%s%s\n",
+			name, o.workers, o.gpusPerWorker, gpuResource, name, monitoringMsg)
+	}
 	return nil
 }
 
